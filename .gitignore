@@ -57,6 +57,6 @@ logs/
 ### Claude Code workspace files ###
 .claude/
 
-### Local notes / review artefacts (not part of source) ###
+### Local notes / review artifacts (not part of source) ###
 *code_review*
 *code-review*

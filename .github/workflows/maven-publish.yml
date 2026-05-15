@@ -1,6 +1,6 @@
 name: Maven Package
 
-# Publishes the artefact to GitHub Packages whenever a Release is created
+# Publishes the artifact to GitHub Packages whenever a Release is created
 # in the GitHub UI (or via `gh release create`). The workflow:
 #   1. Checks out the tagged commit
 #   2. Builds + runs unit AND integration tests (./mvnw verify)
