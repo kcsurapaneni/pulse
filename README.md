@@ -1,6 +1,7 @@
 # pulse
 
 [![CI](https://github.com/kcsurapaneni/pulse/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kcsurapaneni/pulse/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/kcsurapaneni/pulse/branch/main/graph/badge.svg)](https://codecov.io/gh/kcsurapaneni/pulse)
 
 Reusable Spring Boot health indicators for things Spring Boot Actuator doesn't ship out of the box:
 
