@@ -20,15 +20,72 @@ All checks register as standard `HealthContributor`s and surface under `/actuato
 
 ## Install
 
+`pulse-starter` is published to **GitHub Packages**. Consumers need three pieces of config: the dependency + repository, authentication for Maven, and the actuator health endpoint enabled with details.
+
+### 1. Add the dependency and repository
+
+In your consumer app's `pom.xml`:
+
 ```xml
+<repositories>
+  <repository>
+    <id>github-pulse</id>
+    <url>https://maven.pkg.github.com/kcsurapaneni/pulse</url>
+  </repository>
+</repositories>
+
 <dependency>
-    <groupId>dev.kc.pulse</groupId>
-    <artifactId>pulse-starter</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+  <groupId>dev.kc.pulse</groupId>
+  <artifactId>pulse-starter</artifactId>
+  <version>0.1.0</version>
 </dependency>
 ```
 
-Each check is **opt-in** via its own `enabled` flag — nothing is registered unless you turn it on.
+You also need `spring-boot-starter-actuator` (this library declares it `optional` so it doesn't force itself on you):
+
+```xml
+<dependency>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-actuator</artifactId>
+</dependency>
+```
+
+Add `spring-boot-starter-oauth2-client` *only* if you enable the OAuth2 check.
+
+### 2. Authenticate to GitHub Packages
+
+GitHub Packages requires a personal access token even for public packages. Generate one at https://github.com/settings/tokens with the `read:packages` scope (only), then add a `<server>` entry to your `~/.m2/settings.xml`:
+
+```xml
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
+  <servers>
+    <server>
+      <id>github-pulse</id>                <!-- must match the <repository><id> above -->
+      <username>YOUR-GITHUB-USERNAME</username>
+      <password>${env.GITHUB_TOKEN}</password>
+    </server>
+  </servers>
+</settings>
+```
+
+Keep the PAT in the `GITHUB_TOKEN` env var (`export GITHUB_TOKEN=...`) rather than hardcoded — easier to rotate, never written to disk. For CI runners, set `GITHUB_TOKEN` as a secret.
+
+### 3. Expose the health endpoint with details
+
+Without `show-details`, `/actuator/health` only reports `UP`/`DOWN` and the per-check diagnostics Pulse adds (`latencyMs`, `lastSuccessAt`, `lastFailureAt`, plus check-specific fields) won't surface:
+
+```yaml
+management:
+  endpoint:
+    health:
+      show-details: always              # or 'when-authorized' for prod
+  endpoints:
+    web:
+      exposure:
+        include: health                  # ensure /actuator/health is exposed
+```
+
+Each Pulse check is **opt-in** via its own `enabled` flag — nothing is registered unless you turn it on. See the per-check sections below.
 
 ## Mount-point check
 
@@ -235,14 +292,7 @@ With all four kinds of checks active:
 }
 ```
 
-To see the nested `details` fields, set in the consumer app:
-
-```yaml
-management:
-  endpoint:
-    health:
-      show-details: always   # or 'when-authorized'
-```
+The nested `details` fields require `management.endpoint.health.show-details: always` (see [Install](#install) step 3).
 
 ## Failure mode quick reference
 
