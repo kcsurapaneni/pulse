@@ -1,3 +1,4 @@
 dev.kc.pulse.core.PulseAutoConfiguration
 dev.kc.pulse.mount.MountPointAutoConfiguration
 dev.kc.pulse.mule.MuleAutoConfiguration
+dev.kc.pulse.oauth2.OAuth2AutoConfiguration
