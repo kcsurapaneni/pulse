@@ -14,6 +14,13 @@ public class MuleProperties {
 
     private boolean enabled;
     private Duration timeout = Duration.ofSeconds(2);
+
+    /**
+     * K8s probe groups the {@code mule} composite participates in. Default {@code [readiness]} —
+     * downstream HTTP outage drops the pod from the LB but shouldn't restart it.
+     */
+    private List<String> probes = new ArrayList<>(List.of("readiness"));
+
     private List<Service> services = new ArrayList<>();
 
     public boolean isEnabled() {
@@ -30,6 +37,14 @@ public class MuleProperties {
 
     public void setTimeout(Duration timeout) {
         this.timeout = timeout;
+    }
+
+    public List<String> getProbes() {
+        return probes;
+    }
+
+    public void setProbes(List<String> probes) {
+        this.probes = probes;
     }
 
     public List<Service> getServices() {

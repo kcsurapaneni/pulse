@@ -100,6 +100,44 @@ pulse:
 
 This is an **outer** deadline applied uniformly to every check. Module-specific request timeouts (`pulse.mule.timeout`, `pulse.oauth2.timeout`) still apply at the inner request level — `check-timeout` just caps the total so a missed inner timeout can't escalate into a blocked actuator response.
 
+## Kubernetes probes (liveness vs readiness)
+
+Spring Boot exposes two extra availability-aware endpoints in addition to `/actuator/health`:
+
+- `/actuator/health/liveness` — used by K8s liveness probe. **Failure restarts the pod.**
+- `/actuator/health/readiness` — used by K8s readiness probe. **Failure drops the pod from the load balancer** without restarting it.
+
+Pulse wires each module into these probe groups based on a `probes` property per module. **All checks default to `[readiness]`** — downstream-dependency failures should drop traffic but not trigger restarts. Add `liveness` only for checks that genuinely indicate the *pod itself* is broken.
+
+```yaml
+pulse:
+  mount:
+    enabled: true
+    probes: [liveness, readiness]      # opt in to liveness for a critical local mount
+    points: [...]
+  mule:
+    enabled: true
+    probes: [readiness]                # default — downstream HTTP outage shouldn't restart pod
+    services: [...]
+  oauth2:
+    enabled: true
+    probes: [readiness]                # default — IdP outage shouldn't restart pod
+    providers: [...]
+  custom:
+    probes: [readiness]                # default — applies to all SPI (pulseCustom) checks
+```
+
+Each Pulse contributor (`mount`, `mule`, `oauth2`, `pulseCustom`) is appended to the configured group's `management.endpoint.health.group.<probe>.include` list — Spring Boot's defaults (`livenessState`, `readinessState`) and any consumer-set entries are preserved. Set `probes: []` to keep a module out of K8s probe groups entirely (it'll still show up under `/actuator/health`).
+
+A typical K8s deployment manifest then uses:
+
+```yaml
+livenessProbe:
+  httpGet:  { path: /actuator/health/liveness,  port: 8080 }
+readinessProbe:
+  httpGet:  { path: /actuator/health/readiness, port: 8080 }
+```
+
 ## Mount-point check
 
 Configure one or more mount points. The check is `DOWN` when any of: path is missing, isn't a directory, isn't readable, or free space falls below a configured threshold.

@@ -12,6 +12,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class MountPointProperties {
 
     private boolean enabled;
+
+    /**
+     * K8s probe groups the {@code mount} composite participates in. Default {@code [readiness]} —
+     * a missing or degraded mount drops the pod from the LB without restarting it. Add
+     * {@code "liveness"} to also fail liveness when this is a genuinely pod-fatal condition.
+     */
+    private List<String> probes = new ArrayList<>(List.of("readiness"));
+
     private List<MountPoint> points = new ArrayList<>();
 
     public boolean isEnabled() {
@@ -20,6 +28,14 @@ public class MountPointProperties {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public List<String> getProbes() {
+        return probes;
+    }
+
+    public void setProbes(List<String> probes) {
+        this.probes = probes;
     }
 
     public List<MountPoint> getPoints() {

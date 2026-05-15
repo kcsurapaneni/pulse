@@ -1,6 +1,8 @@
 package dev.kc.pulse.core;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -28,11 +30,41 @@ public class PulseProperties {
      */
     private Duration checkTimeout = Duration.ofSeconds(5);
 
+    private final Custom custom = new Custom();
+
     public Duration getCheckTimeout() {
         return checkTimeout;
     }
 
     public void setCheckTimeout(Duration checkTimeout) {
         this.checkTimeout = checkTimeout;
+    }
+
+    public Custom getCustom() {
+        return custom;
+    }
+
+    /**
+     * Configuration for the {@code pulseCustom} composite that aggregates all
+     * {@link PulseCheck} SPI beans.
+     */
+    public static class Custom {
+
+        /**
+         * K8s probe groups the {@code pulseCustom} composite participates in. Default
+         * {@code [readiness]} — downstream failures from consumer-defined checks should
+         * drop the pod from the load balancer but shouldn't trigger a restart. Set to an
+         * empty list to keep {@code pulseCustom} out of the availability probe groups
+         * entirely.
+         */
+        private List<String> probes = new ArrayList<>(List.of("readiness"));
+
+        public List<String> getProbes() {
+            return probes;
+        }
+
+        public void setProbes(List<String> probes) {
+            this.probes = probes;
+        }
     }
 }

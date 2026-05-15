@@ -14,6 +14,13 @@ public class OAuth2Properties {
 
     private boolean enabled;
     private Duration timeout = Duration.ofSeconds(3);
+
+    /**
+     * K8s probe groups the {@code oauth2} composite participates in. Default {@code [readiness]} —
+     * IdP outage drops the pod from the LB but shouldn't restart it.
+     */
+    private List<String> probes = new ArrayList<>(List.of("readiness"));
+
     private List<Provider> providers = new ArrayList<>();
 
     public boolean isEnabled() {
@@ -30,6 +37,14 @@ public class OAuth2Properties {
 
     public void setTimeout(Duration timeout) {
         this.timeout = timeout;
+    }
+
+    public List<String> getProbes() {
+        return probes;
+    }
+
+    public void setProbes(List<String> probes) {
+        this.probes = probes;
     }
 
     public List<Provider> getProviders() {
