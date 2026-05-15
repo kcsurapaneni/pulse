@@ -1,5 +1,7 @@
 # pulse
 
+[![CI](https://github.com/kcsurapaneni/pulse/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kcsurapaneni/pulse/actions/workflows/ci.yml)
+
 Reusable Spring Boot health indicators for things Spring Boot Actuator doesn't ship out of the box:
 
 | Check    | Component key      | Verifies                                                          |
