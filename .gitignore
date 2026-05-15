@@ -1,0 +1,62 @@
+### Maven ###
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### Gradle (defensive — repo is Maven but tooling sometimes drops these) ###
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+.gradle/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### Eclipse / STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### OS metadata ###
+.DS_Store
+Thumbs.db
+
+### Editor swap / backup ###
+*.swp
+*.swo
+*~
+*.bak
+
+### Logs ###
+*.log
+logs/
+
+### Local environment files (may contain secrets) ###
+.env
+.env.local
+.env.*.local
+
+### Claude Code workspace files ###
+.claude/
+
+### Local notes / review artefacts (not part of source) ###
+*code_review*
+*code-review*
