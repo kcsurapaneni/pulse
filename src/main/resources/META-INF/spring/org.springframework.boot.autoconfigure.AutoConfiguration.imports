@@ -1,2 +1,3 @@
 dev.kc.pulse.core.PulseAutoConfiguration
 dev.kc.pulse.mount.MountPointAutoConfiguration
+dev.kc.pulse.mule.MuleAutoConfiguration
