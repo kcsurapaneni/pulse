@@ -8,6 +8,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.health.contributor.CompositeHealthContributor;
 import org.springframework.boot.health.contributor.HealthContributor;
 import org.springframework.boot.health.contributor.HealthIndicator;
@@ -18,6 +19,7 @@ import org.springframework.context.annotation.Bean;
  */
 @AutoConfiguration
 @ConditionalOnClass(HealthIndicator.class)
+@EnableConfigurationProperties(PulseProperties.class)
 public class PulseAutoConfiguration {
 
     @Bean
@@ -29,7 +31,7 @@ public class PulseAutoConfiguration {
     @Bean(name = "pulseCustom")
     @ConditionalOnMissingBean(name = "pulseCustom")
     public CompositeHealthContributor pulseCustom(
-            ObjectProvider<PulseCheck> checks, Clock pulseClock) {
+            ObjectProvider<PulseCheck> checks, Clock pulseClock, PulseProperties pulseProperties) {
         Map<String, HealthContributor> map = new LinkedHashMap<>();
         checks.orderedStream().forEach(check -> {
             String name = check.name();
@@ -40,7 +42,8 @@ public class PulseAutoConfiguration {
                 throw new IllegalStateException(
                         "PulseCheck bean " + check.getClass().getName() + ": " + ex.getMessage(), ex);
             }
-            HealthContributor existing = map.put(name, new PulseCheckAdapter(check, pulseClock));
+            HealthContributor existing = map.put(name,
+                    new PulseCheckAdapter(check, pulseClock, pulseProperties.getCheckTimeout()));
             if (existing != null) {
                 throw new IllegalStateException("Duplicate PulseCheck name: " + name);
             }

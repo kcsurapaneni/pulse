@@ -8,6 +8,7 @@ import java.util.Map;
 import dev.kc.pulse.core.PulseAutoConfiguration;
 import dev.kc.pulse.core.PulseCheckAdapter;
 import dev.kc.pulse.core.PulseNames;
+import dev.kc.pulse.core.PulseProperties;
 import dev.kc.pulse.mule.MuleProperties.Service;
 
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -44,6 +45,7 @@ public class MuleAutoConfiguration {
     public CompositeHealthContributor mule(
             MuleProperties props,
             Clock pulseClock,
+            PulseProperties pulseProperties,
             @Qualifier("muleHealthHttpClient") HttpClient muleHealthHttpClient) {
         Map<String, HealthContributor> map = new LinkedHashMap<>();
         for (Service svc : props.getServices()) {
@@ -52,7 +54,8 @@ public class MuleAutoConfiguration {
                 throw new IllegalStateException("Duplicate mule service name: " + svc.getName());
             }
             map.put(svc.getName(), new PulseCheckAdapter(
-                    new MuleCheck(svc, muleHealthHttpClient, props.getTimeout()), pulseClock));
+                    new MuleCheck(svc, muleHealthHttpClient, props.getTimeout()), pulseClock,
+                    pulseProperties.getCheckTimeout()));
         }
         return CompositeHealthContributor.fromMap(map);
     }

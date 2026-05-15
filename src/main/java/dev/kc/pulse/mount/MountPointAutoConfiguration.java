@@ -7,6 +7,7 @@ import java.util.Map;
 import dev.kc.pulse.core.PulseAutoConfiguration;
 import dev.kc.pulse.core.PulseCheckAdapter;
 import dev.kc.pulse.core.PulseNames;
+import dev.kc.pulse.core.PulseProperties;
 import dev.kc.pulse.mount.MountPointProperties.MountPoint;
 
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -30,15 +31,16 @@ public class MountPointAutoConfiguration {
 
     @Bean(name = "mount")
     @ConditionalOnMissingBean(name = "mount")
-    public CompositeHealthContributor mount(MountPointProperties props, Clock pulseClock) {
+    public CompositeHealthContributor mount(MountPointProperties props, Clock pulseClock,
+            PulseProperties pulseProperties) {
         Map<String, HealthContributor> map = new LinkedHashMap<>();
         for (MountPoint point : props.getPoints()) {
             validate(point);
             if (map.containsKey(point.getName())) {
                 throw new IllegalStateException("Duplicate mount point name: " + point.getName());
             }
-            map.put(point.getName(),
-                    new PulseCheckAdapter(new MountPointCheck(point), pulseClock));
+            map.put(point.getName(), new PulseCheckAdapter(new MountPointCheck(point), pulseClock,
+                    pulseProperties.getCheckTimeout()));
         }
         return CompositeHealthContributor.fromMap(map);
     }

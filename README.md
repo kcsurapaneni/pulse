@@ -89,6 +89,17 @@ management:
 
 Each Pulse check is **opt-in** via its own `enabled` flag — nothing is registered unless you turn it on. See the per-check sections below.
 
+## Hung-check protection
+
+Every Pulse check runs under a global outer deadline. If `PulseCheck.check()` takes longer than this deadline — a degraded NFS mount, a stuck socket, a deadlocked custom check — the adapter returns `DOWN` with `details.error="check timed out after PT5S"` rather than blocking the entire `/actuator/health` response. Without this guard a single hung check can take down a Kubernetes liveness probe.
+
+```yaml
+pulse:
+  check-timeout: 5s          # default; tune per environment
+```
+
+This is an **outer** deadline applied uniformly to every check. Module-specific request timeouts (`pulse.mule.timeout`, `pulse.oauth2.timeout`) still apply at the inner request level — `check-timeout` just caps the total so a missed inner timeout can't escalate into a blocked actuator response.
+
 ## Mount-point check
 
 Configure one or more mount points. The check is `DOWN` when any of: path is missing, isn't a directory, isn't readable, or free space falls below a configured threshold.

@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.kc.pulse.core.PulseAutoConfiguration;
 import dev.kc.pulse.core.PulseCheckAdapter;
 import dev.kc.pulse.core.PulseNames;
+import dev.kc.pulse.core.PulseProperties;
 import dev.kc.pulse.oauth2.OAuth2Properties.Provider;
 
 import org.springframework.beans.factory.ObjectProvider;
@@ -52,6 +53,7 @@ public class OAuth2AutoConfiguration {
     public CompositeHealthContributor oauth2(
             OAuth2Properties props,
             Clock pulseClock,
+            PulseProperties pulseProperties,
             ClientRegistrationRepository clientRegistrationRepository,
             @Qualifier("oauth2HealthHttpClient") HttpClient oauth2HealthHttpClient,
             ObjectProvider<ObjectMapper> objectMapperProvider) {
@@ -64,7 +66,8 @@ public class OAuth2AutoConfiguration {
             }
             OAuth2Check check = new OAuth2Check(provider, clientRegistrationRepository,
                     oauth2HealthHttpClient, props.getTimeout(), pulseClock, objectMapper);
-            map.put(provider.getName(), new PulseCheckAdapter(check, pulseClock));
+            map.put(provider.getName(),
+                    new PulseCheckAdapter(check, pulseClock, pulseProperties.getCheckTimeout()));
         }
         return CompositeHealthContributor.fromMap(map);
     }

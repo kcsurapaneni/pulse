@@ -1,6 +1,7 @@
 package dev.kc.pulse.core;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.ZoneOffset;
 
 import org.junit.jupiter.api.Test;
@@ -51,6 +52,23 @@ class PulseAutoConfigurationTest {
         runner.withBean("pulseClock", Clock.class, () -> fixed).run(ctx -> {
             assertThat(ctx.getBean("pulseClock", Clock.class)).isSameAs(fixed);
         });
+    }
+
+    @Test
+    void defaultsCheckTimeoutToFiveSeconds() {
+        runner.run(ctx -> {
+            PulseProperties props = ctx.getBean(PulseProperties.class);
+            assertThat(props.getCheckTimeout()).isEqualTo(Duration.ofSeconds(5));
+        });
+    }
+
+    @Test
+    void respectsCustomCheckTimeout() {
+        runner.withPropertyValues("pulse.check-timeout=10s")
+                .run(ctx -> {
+                    PulseProperties props = ctx.getBean(PulseProperties.class);
+                    assertThat(props.getCheckTimeout()).isEqualTo(Duration.ofSeconds(10));
+                });
     }
 
     @Configuration
