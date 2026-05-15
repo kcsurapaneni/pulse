@@ -1,0 +1,40 @@
+name: Maven Package
+
+# Publishes the artefact to GitHub Packages whenever a Release is created
+# in the GitHub UI (or via `gh release create`). The workflow:
+#   1. Checks out the tagged commit
+#   2. Builds + runs unit AND integration tests (./mvnw verify)
+#   3. Deploys the main / sources / javadoc jars to maven.pkg.github.com
+# The github.token secret is auto-provisioned per run and scoped via the
+# permissions block below — no PAT setup required.
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+          server-id: github          # matches <distributionManagement><repository><id> in pom.xml
+          settings-path: ${{ github.workspace }}
+
+      - name: Build and test
+        run: ./mvnw -B verify --file pom.xml
+
+      - name: Publish to GitHub Packages
+        run: ./mvnw -B deploy -s $GITHUB_WORKSPACE/settings.xml -DskipTests
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
