@@ -32,6 +32,8 @@ public class PulseProperties {
 
     private final Custom custom = new Custom();
 
+    private final Reactive reactive = new Reactive();
+
     public Duration getCheckTimeout() {
         return checkTimeout;
     }
@@ -42,6 +44,10 @@ public class PulseProperties {
 
     public Custom getCustom() {
         return custom;
+    }
+
+    public Reactive getReactive() {
+        return reactive;
     }
 
     /**
@@ -56,6 +62,30 @@ public class PulseProperties {
          * drop the pod from the load balancer but shouldn't trigger a restart. Set to an
          * empty list to keep {@code pulseCustom} out of the availability probe groups
          * entirely.
+         */
+        private List<String> probes = new ArrayList<>(List.of("readiness"));
+
+        public List<String> getProbes() {
+            return probes;
+        }
+
+        public void setProbes(List<String> probes) {
+            this.probes = probes;
+        }
+    }
+
+    /**
+     * Configuration for the {@code pulseReactive} composite that aggregates all
+     * {@link ReactivePulseCheck} SPI beans. Only registers when {@code reactor-core} is on the
+     * consumer's classpath.
+     */
+    public static class Reactive {
+
+        /**
+         * K8s probe groups the {@code pulseReactive} composite participates in. Default
+         * {@code [readiness]} — same rationale as {@code pulse.custom.probes}. Independent
+         * from {@code pulse.custom.probes} so blocking and reactive custom checks can be
+         * routed to different probe groups when that matters.
          */
         private List<String> probes = new ArrayList<>(List.of("readiness"));
 

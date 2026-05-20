@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `ReactivePulseCheck` SPI for WebFlux-native consumer-defined checks. Implementations
+  return `Mono<Health>` and are auto-discovered into a new `pulseReactive` composite
+  contributor that surfaces under `/actuator/health/pulseReactive.<name>`. Activates
+  only when `reactor-core` is on the classpath (gate: `@ConditionalOnClass(Mono.class)`)
+  so non-WebFlux apps pay nothing. Same decoration as the blocking SPI
+  (`latencyMs` / `lastSuccessAt` / `lastFailureAt`), same `pulse.check-timeout` outer
+  deadline (applied via `Mono.timeout`), and new `pulse.reactive.probes` property
+  (default `[readiness]`) for independent K8s probe-group routing from the blocking
+  `pulse.custom.probes`. Adds `reactor-core` as an optional dependency.
 - IDE configuration-metadata now ships with descriptions on every `pulse.*` property
   and `liveness` / `readiness` value hints on each `*.probes` setting. Hover tooltips
   in IntelliJ/VS Code show what each key does; typing `pulse.mount.probes:` offers

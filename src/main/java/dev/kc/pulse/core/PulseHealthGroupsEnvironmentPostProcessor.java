@@ -41,7 +41,8 @@ public class PulseHealthGroupsEnvironmentPostProcessor implements EnvironmentPos
             new ModuleSpec("pulse.mount", "mount", true),
             new ModuleSpec("pulse.mule", "mule", true),
             new ModuleSpec("pulse.oauth2", "oauth2", true),
-            new ModuleSpec("pulse.custom", "pulseCustom", false));
+            new ModuleSpec("pulse.custom", "pulseCustom", false),
+            new ModuleSpec("pulse.reactive", "pulseReactive", false));
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment env, SpringApplication app) {

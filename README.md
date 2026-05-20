@@ -281,6 +281,40 @@ Each `PulseCheck` is wrapped in an adapter that automatically adds:
 
 You don't need to thread these through yourself.
 
+## Reactive checks (WebFlux)
+
+WebFlux apps can run consumer-defined checks fully on the reactive scheduler — no `Schedulers.boundedElastic()` round-trip. Implement `ReactivePulseCheck` instead of `PulseCheck`; the library auto-discovers your bean and surfaces it under `pulseReactive.<name>`. Activates only when `reactor-core` is on the classpath, so non-WebFlux apps pay nothing.
+
+```java
+@Component
+class PaymentsBackendReactiveCheck implements ReactivePulseCheck {
+    private final WebClient client;
+
+    PaymentsBackendReactiveCheck(WebClient client) {
+        this.client = client;
+    }
+
+    @Override public String name() { return "payments"; }
+
+    @Override public Mono<Health> check() {
+        return client.get().uri("/healthz").retrieve()
+                .toBodilessEntity()
+                .map(resp -> Health.up().withDetail("status", resp.getStatusCode().value()).build())
+                .onErrorResume(ex -> Mono.just(Health.down().withDetail("reason", ex.getMessage()).build()));
+    }
+}
+```
+
+Same decoration as the blocking SPI (`latencyMs` / `lastSuccessAt` / `lastFailureAt`), same outer deadline (`pulse.check-timeout`), same K8s probe model — but with its own routing property `pulse.reactive.probes` so blocking and reactive checks can be routed independently if needed:
+
+```yaml
+pulse:
+  reactive:
+    probes: [readiness]   # default
+```
+
+The built-in `mount` / `mule` / `oauth2` contributors stay blocking. In a WebFlux app, Spring Boot wraps them onto `Schedulers.boundedElastic()` automatically — they still work, they just consume a worker thread per probe. Reactive variants for those built-ins are not on the current roadmap.
+
 ## Sample `/actuator/health` output
 
 With all four kinds of checks active:

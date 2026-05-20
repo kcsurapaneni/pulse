@@ -27,6 +27,27 @@ class PulseHealthGroupsEnvironmentPostProcessorTest {
     }
 
     @Test
+    void contributesPulseReactiveToReadinessByDefault() {
+        MockEnvironment env = new MockEnvironment();
+
+        processor.postProcessEnvironment(env, null);
+
+        assertThat(includeFor(env, "readiness")).contains("readinessState", "pulseReactive");
+    }
+
+    @Test
+    void emptyReactiveProbesListOptsOut() {
+        MockEnvironment env = new MockEnvironment();
+        env.setProperty("pulse.reactive.probes", "");
+        env.setProperty("pulse.custom.probes", "");
+
+        processor.postProcessEnvironment(env, null);
+
+        assertThat(env.getProperty("management.endpoint.health.group.readiness.include"))
+                .as("both custom + reactive opted out").isNull();
+    }
+
+    @Test
     void addsEnabledModulesToReadiness() {
         MockEnvironment env = new MockEnvironment();
         env.setProperty("pulse.mount.enabled", "true");
@@ -63,13 +84,14 @@ class PulseHealthGroupsEnvironmentPostProcessorTest {
         env.setProperty("pulse.mount.enabled", "true");
         env.setProperty("pulse.mount.probes", "");
         env.setProperty("pulse.custom.probes", "");
+        env.setProperty("pulse.reactive.probes", "");
 
         processor.postProcessEnvironment(env, null);
 
         assertThat(env.getProperty("management.endpoint.health.group.liveness.include"))
                 .as("nothing opted in to liveness").isNull();
         assertThat(env.getProperty("management.endpoint.health.group.readiness.include"))
-                .as("mount opted out, custom opted out")
+                .as("mount, custom, reactive all opted out")
                 .isNull();
     }
 
@@ -77,7 +99,8 @@ class PulseHealthGroupsEnvironmentPostProcessorTest {
     void disabledModulesDoNotContribute() {
         MockEnvironment env = new MockEnvironment();
         // none enabled
-        env.setProperty("pulse.custom.probes", "");  // also silence pulseCustom
+        env.setProperty("pulse.custom.probes", "");
+        env.setProperty("pulse.reactive.probes", "");
 
         processor.postProcessEnvironment(env, null);
 
