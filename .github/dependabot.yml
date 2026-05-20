@@ -1,0 +1,40 @@
+# Dependabot — automated dependency updates.
+# Docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+# Schedule is Monday-weekly: catches CVEs within ~7 days without daily PR noise.
+
+version: 2
+updates:
+
+  # Maven dependencies declared in pom.xml.
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Edmonton"
+    open-pull-requests-limit: 10
+    # Group related updates into single PRs so a Boot patch doesn't fan out into
+    # ten separate PRs we'd merge in sequence anyway.
+    groups:
+      spring-boot:
+        patterns:
+          - "org.springframework.boot:*"
+          - "org.springframework.security:*"
+      testcontainers:
+        patterns:
+          - "org.testcontainers:*"
+          - "com.github.dasniko:testcontainers-keycloak"
+      jackson:
+        patterns:
+          - "com.fasterxml.jackson*:*"
+
+  # Action versions pinned in .github/workflows/*.yml.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Edmonton"
+    open-pull-requests-limit: 5
