@@ -17,11 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and Jackson families so monthly Boot patches don't fan out into many small PRs.
 
 ### Dependency upgrades
+- `org.testcontainers:testcontainers-bom` 1.21.3 → 2.0.5 (major bump — see note below)
+- `com.github.dasniko:testcontainers-keycloak` 3.6.0 → 4.2.1
 - `org.wiremock:wiremock-standalone` 3.13.1 → 3.13.2
 - `actions/checkout` 4 → 6
 - `actions/setup-java` 4 → 5
 - `actions/upload-artifact` 4 → 7
 - `codecov/codecov-action` 5 → 6
+
+> **Testcontainers 2.x note**: the JUnit Jupiter extension artifact was renamed from
+> `org.testcontainers:junit-jupiter` to `org.testcontainers:testcontainers-junit-jupiter`
+> (aligning with the other 2.x module names). Pulse only consumes this dependency in
+> test scope, so consumers of `pulse-starter` are unaffected.
 
 ## [0.2.0] — 2026-05-15
 
