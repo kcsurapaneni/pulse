@@ -63,6 +63,16 @@ class PulseAutoConfigurationTest {
     }
 
     @Test
+    void springsManagementHealthDisablesPulseCustom() {
+        // Spring's standard kill-switch on the pulseCustom composite — even when SPI
+        // beans are present, setting management.health.pulseCustom.enabled=false should
+        // suppress the composite contributor entirely.
+        runner.withUserConfiguration(WithCheckBean.class)
+                .withPropertyValues("management.health.pulseCustom.enabled=false")
+                .run(ctx -> assertThat(ctx).doesNotHaveBean("pulseCustom"));
+    }
+
+    @Test
     void respectsCustomCheckTimeout() {
         runner.withPropertyValues("pulse.check-timeout=10s")
                 .run(ctx -> {

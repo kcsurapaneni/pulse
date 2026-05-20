@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Spring's standard `management.health.<name>.enabled` kill-switch now disables the
+  matching Pulse contributor (default `true`). Applies to `mount`, `mule`, `oauth2`,
+  and `pulseCustom`. Comes in addition to `pulse.<module>.enabled` — setting either
+  to `false` keeps the contributor out. Implemented by adding
+  `@ConditionalOnEnabledHealthIndicator` to each module's auto-config and to the
+  `pulseCustom` bean, matching the convention Boot's own indicators follow
+  (`management.health.db.enabled`, `management.health.redis.enabled`, etc.).
 - JaCoCo coverage measurement. The `jacoco-maven-plugin` merges Surefire (unit + slice)
   and Failsafe (IT) execution data into a combined report at `target/site/jacoco/`.
   The CI workflow uploads the HTML report as an artefact on every run and pushes

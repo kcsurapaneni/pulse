@@ -90,6 +90,8 @@ management:
 
 Each Pulse check is **opt-in** via its own `enabled` flag — nothing is registered unless you turn it on. See the per-check sections below.
 
+Pulse contributors also honour Spring Boot's standard kill-switch `management.health.<name>.enabled` (default `true`). Setting `management.health.mount.enabled=false`, for example, disables the `mount` contributor regardless of `pulse.mount.enabled`. This matches the convention Boot's own built-in indicators follow (`management.health.db.enabled`, `management.health.redis.enabled`, etc.) and lets you toggle Pulse on a per-environment basis through the same property namespace you already use.
+
 ## Hung-check protection
 
 Every Pulse check runs under a global outer deadline. If `PulseCheck.check()` takes longer than this deadline — a degraded NFS mount, a stuck socket, a deadlocked custom check — the adapter returns `DOWN` with `details.error="check timed out after PT5S"` rather than blocking the entire `/actuator/health` response. Without this guard a single hung check can take down a Kubernetes liveness probe.

@@ -15,6 +15,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.health.autoconfigure.contributor.ConditionalOnEnabledHealthIndicator;
 import org.springframework.boot.health.contributor.CompositeHealthContributor;
 import org.springframework.boot.health.contributor.HealthContributor;
 import org.springframework.boot.health.contributor.HealthIndicator;
@@ -26,6 +27,7 @@ import org.springframework.context.annotation.Bean;
 @AutoConfiguration(after = PulseAutoConfiguration.class)
 @ConditionalOnClass(HealthIndicator.class)
 @ConditionalOnProperty(prefix = "pulse.mount", name = "enabled", havingValue = "true")
+@ConditionalOnEnabledHealthIndicator("mount")
 @EnableConfigurationProperties(MountPointProperties.class)
 public class MountPointAutoConfiguration {
 

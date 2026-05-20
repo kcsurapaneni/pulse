@@ -41,6 +41,16 @@ class MuleAutoConfigurationTest {
     }
 
     @Test
+    void springsManagementHealthDisablesTheContributor() {
+        runner.withPropertyValues(
+                "pulse.mule.enabled=true",
+                "pulse.mule.services[0].name=order",
+                "pulse.mule.services[0].url=http://localhost/health",
+                "management.health.mule.enabled=false")
+                .run(ctx -> assertThat(ctx).doesNotHaveBean("mule"));
+    }
+
+    @Test
     void failsFastOnBlankUrl() {
         runner.withPropertyValues(
                 "pulse.mule.enabled=true",

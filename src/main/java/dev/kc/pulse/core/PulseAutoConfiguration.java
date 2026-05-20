@@ -9,6 +9,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.health.autoconfigure.contributor.ConditionalOnEnabledHealthIndicator;
 import org.springframework.boot.health.contributor.CompositeHealthContributor;
 import org.springframework.boot.health.contributor.HealthContributor;
 import org.springframework.boot.health.contributor.HealthIndicator;
@@ -30,6 +31,7 @@ public class PulseAutoConfiguration {
 
     @Bean(name = "pulseCustom")
     @ConditionalOnMissingBean(name = "pulseCustom")
+    @ConditionalOnEnabledHealthIndicator("pulseCustom")
     public CompositeHealthContributor pulseCustom(
             ObjectProvider<PulseCheck> checks, Clock pulseClock, PulseProperties pulseProperties) {
         Map<String, HealthContributor> map = new LinkedHashMap<>();

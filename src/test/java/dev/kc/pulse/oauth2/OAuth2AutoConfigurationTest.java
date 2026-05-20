@@ -58,6 +58,17 @@ class OAuth2AutoConfigurationTest {
     }
 
     @Test
+    void springsManagementHealthDisablesTheContributor() {
+        runner.withUserConfiguration(StubRegistrationRepository.class)
+                .withPropertyValues(
+                        "pulse.oauth2.enabled=true",
+                        "pulse.oauth2.providers[0].name=okta",
+                        "pulse.oauth2.providers[0].registration-id=okta",
+                        "management.health.oauth2.enabled=false")
+                .run(ctx -> assertThat(ctx).doesNotHaveBean("oauth2"));
+    }
+
+    @Test
     void backsOffWhenNoClientRegistrationRepositoryBean() {
         runner.withPropertyValues(
                 "pulse.oauth2.enabled=true",

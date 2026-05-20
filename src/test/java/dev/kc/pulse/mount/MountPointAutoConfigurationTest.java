@@ -43,6 +43,18 @@ class MountPointAutoConfigurationTest {
     }
 
     @Test
+    void springsManagementHealthDisablesTheContributor(@TempDir Path tmp) {
+        // Spring's standard kill-switch (management.health.<name>.enabled=false) should
+        // win even if our own pulse.mount.enabled is true.
+        runner.withPropertyValues(
+                "pulse.mount.enabled=true",
+                "pulse.mount.points[0].name=tmp",
+                "pulse.mount.points[0].path=" + tmp,
+                "management.health.mount.enabled=false")
+                .run(ctx -> assertThat(ctx).doesNotHaveBean("mount"));
+    }
+
+    @Test
     void failsFastOnBlankName(@TempDir Path tmp) {
         runner.withPropertyValues(
                 "pulse.mount.enabled=true",
