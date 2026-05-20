@@ -360,6 +360,10 @@ The nested `details` fields require `management.endpoint.health.show-details: al
 | OAuth2 success response is unparseable                 | `DOWN` | `details.error`                            |
 | SPI `check()` throws                                   | `DOWN` | `details.error` (exception captured)       |
 
+## Changelog
+
+Release notes and version-to-version diffs live in [CHANGELOG.md](CHANGELOG.md).
+
 ## Building
 
 ```bash
