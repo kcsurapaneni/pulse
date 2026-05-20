@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-05-20
+
+A reactive SPI and an IDE-quality-of-life pass. WebFlux apps now have a first-class
+way to write Pulse checks that don't tie up a worker thread; consumers writing
+`application.yml` get hover descriptions and value hints on every `pulse.*` property.
+
 ### Added
 - `ReactivePulseCheck` SPI for WebFlux-native consumer-defined checks. Implementations
   return `Mono<Health>` and are auto-discovered into a new `pulseReactive` composite
@@ -121,7 +127,8 @@ with uniform `latencyMs` / `lastSuccessAt` / `lastFailureAt` decoration.
 - 39 unit + auto-configuration slice tests
 - 8 integration tests (Keycloak Testcontainer for OAuth2, WireMock for Mule HTTP)
 
-[Unreleased]: https://github.com/kcsurapaneni/pulse/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/kcsurapaneni/pulse/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/kcsurapaneni/pulse/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/kcsurapaneni/pulse/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/kcsurapaneni/pulse/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kcsurapaneni/pulse/releases/tag/v0.1.0
