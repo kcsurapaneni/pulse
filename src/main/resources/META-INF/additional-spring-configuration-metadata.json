@@ -1,0 +1,56 @@
+{
+  "hints": [
+    {
+      "name": "pulse.mount.probes",
+      "values": [
+        {
+          "value": "liveness",
+          "description": "Include in /actuator/health/liveness. Failure here will trigger a Kubernetes pod restart."
+        },
+        {
+          "value": "readiness",
+          "description": "Include in /actuator/health/readiness. Failure here will remove the pod from the Kubernetes service load balancer without restarting it."
+        }
+      ]
+    },
+    {
+      "name": "pulse.mule.probes",
+      "values": [
+        {
+          "value": "liveness",
+          "description": "Include in /actuator/health/liveness. Failure here will trigger a Kubernetes pod restart."
+        },
+        {
+          "value": "readiness",
+          "description": "Include in /actuator/health/readiness. Failure here will remove the pod from the Kubernetes service load balancer without restarting it."
+        }
+      ]
+    },
+    {
+      "name": "pulse.oauth2.probes",
+      "values": [
+        {
+          "value": "liveness",
+          "description": "Include in /actuator/health/liveness. Failure here will trigger a Kubernetes pod restart."
+        },
+        {
+          "value": "readiness",
+          "description": "Include in /actuator/health/readiness. Failure here will remove the pod from the Kubernetes service load balancer without restarting it."
+        }
+      ]
+    },
+    {
+      "name": "pulse.custom.probes",
+      "values": [
+        {
+          "value": "liveness",
+          "description": "Include in /actuator/health/liveness. Failure here will trigger a Kubernetes pod restart."
+        },
+        {
+          "value": "readiness",
+          "description": "Include in /actuator/health/readiness. Failure here will remove the pod from the Kubernetes service load balancer without restarting it."
+        }
+      ]
+    }
+  ]
+}

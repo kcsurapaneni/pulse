@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- IDE configuration-metadata now ships with descriptions on every `pulse.*` property
+  and `liveness` / `readiness` value hints on each `*.probes` setting. Hover tooltips
+  in IntelliJ/VS Code show what each key does; typing `pulse.mount.probes:` offers
+  the two valid values as completions. Implemented via field-level Javadoc on
+  `MountPointProperties` / `MuleProperties` / `OAuth2Properties` (inner classes
+  included) plus a curated `META-INF/additional-spring-configuration-metadata.json`
+  merged with the generator output by `spring-boot-configuration-processor`.
+
 ## [0.3.0] — 2026-05-19
 
 Adds a Spring-idiomatic kill-switch for Pulse contributors so consumers can disable

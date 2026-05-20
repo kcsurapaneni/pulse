@@ -12,7 +12,16 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("pulse.oauth2")
 public class OAuth2Properties {
 
+    /**
+     * Master switch for the OAuth2 {@code client_credentials} check. Defaults to {@code false} so
+     * the check only registers when explicitly enabled.
+     */
     private boolean enabled;
+
+    /**
+     * Per-request deadline for token endpoint calls. Also used to size the connect timeout
+     * (half this value).
+     */
     private Duration timeout = Duration.ofSeconds(3);
 
     /**
@@ -21,6 +30,12 @@ public class OAuth2Properties {
      */
     private List<String> probes = new ArrayList<>(List.of("readiness"));
 
+    /**
+     * OAuth2 providers to health-check. Each entry references an existing
+     * {@code spring.security.oauth2.client.registration.<registrationId>} so credentials don't
+     * have to be duplicated into {@code pulse} config. Becomes a sub-contributor under
+     * {@code /actuator/health/oauth2/<name>}.
+     */
     private List<Provider> providers = new ArrayList<>();
 
     public boolean isEnabled() {
@@ -55,10 +70,29 @@ public class OAuth2Properties {
         this.providers = providers;
     }
 
+    /**
+     * Configuration for a single OAuth2 provider to health-check.
+     */
     public static class Provider {
 
+        /**
+         * Component key under {@code oauth2.<name>} in {@code /actuator/health}. Must be non-blank
+         * and must not contain {@code '/'}.
+         */
         private String name;
+
+        /**
+         * Id of an existing {@code spring.security.oauth2.client.registration.<id>}. Credentials,
+         * token URI, scope, and auth method are read from that registration on every probe so
+         * runtime secret rotation flows through automatically.
+         */
         private String registrationId;
+
+        /**
+         * Upper bound on token reuse between live handshakes. The cache refreshes at 80 % of
+         * {@code min(token.expires_in, cache-ttl)}, so a typical 1-hour IdP token with the
+         * default 5-minute TTL re-handshakes every ~4 minutes.
+         */
         private Duration cacheTtl = Duration.ofMinutes(5);
 
         public String getName() {

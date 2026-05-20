@@ -11,6 +11,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("pulse.mount")
 public class MountPointProperties {
 
+    /**
+     * Master switch for the mount-point check. Defaults to {@code false} so the check
+     * only registers when explicitly enabled.
+     */
     private boolean enabled;
 
     /**
@@ -20,6 +24,10 @@ public class MountPointProperties {
      */
     private List<String> probes = new ArrayList<>(List.of("readiness"));
 
+    /**
+     * Mount points to check. Each entry becomes a sub-contributor under
+     * {@code /actuator/health/mount/<name>}.
+     */
     private List<MountPoint> points = new ArrayList<>();
 
     public boolean isEnabled() {
@@ -46,11 +54,33 @@ public class MountPointProperties {
         this.points = points;
     }
 
+    /**
+     * Configuration for a single mount point.
+     */
     public static class MountPoint {
 
+        /**
+         * Component key under {@code mount.<name>} in {@code /actuator/health}. Must be non-blank
+         * and must not contain {@code '/'}.
+         */
         private String name;
+
+        /**
+         * Filesystem path to check. UNC paths are supported on Windows.
+         */
         private String path;
+
+        /**
+         * Minimum free bytes threshold. When set, the check reports {@code DOWN} if the path's
+         * usable space falls below this value. Leave unset to skip the byte-level threshold.
+         */
         private Long minFreeBytes;
+
+        /**
+         * Minimum free percent threshold (0–100). When set, the check reports {@code DOWN} if the
+         * path's usable space drops below this fraction of total space. Leave unset to skip the
+         * percent threshold.
+         */
         private Integer minFreePercent;
 
         public String getName() {

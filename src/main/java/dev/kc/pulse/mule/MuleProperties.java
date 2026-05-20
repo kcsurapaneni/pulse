@@ -12,7 +12,16 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("pulse.mule")
 public class MuleProperties {
 
+    /**
+     * Master switch for the Mule HTTP check. Defaults to {@code false} so the check only
+     * registers when explicitly enabled.
+     */
     private boolean enabled;
+
+    /**
+     * Per-request deadline applied to each Mule service ping. Also used to size the connect
+     * timeout (half this value).
+     */
     private Duration timeout = Duration.ofSeconds(2);
 
     /**
@@ -21,6 +30,10 @@ public class MuleProperties {
      */
     private List<String> probes = new ArrayList<>(List.of("readiness"));
 
+    /**
+     * Mule services to ping. Each entry becomes a sub-contributor under
+     * {@code /actuator/health/mule/<name>}.
+     */
     private List<Service> services = new ArrayList<>();
 
     public boolean isEnabled() {
@@ -55,10 +68,25 @@ public class MuleProperties {
         this.services = services;
     }
 
+    /**
+     * Configuration for a single Mule (or any HTTP) service to ping.
+     */
     public static class Service {
 
+        /**
+         * Component key under {@code mule.<name>} in {@code /actuator/health}. Must be non-blank
+         * and must not contain {@code '/'}.
+         */
         private String name;
+
+        /**
+         * URL to GET. Must use the {@code http} or {@code https} scheme.
+         */
         private String url;
+
+        /**
+         * HTTP status code that counts as healthy. Defaults to {@code 200}.
+         */
         private int expectedStatus = 200;
 
         public String getName() {
