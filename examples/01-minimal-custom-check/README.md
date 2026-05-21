@@ -12,7 +12,7 @@ The simplest possible Pulse usage: one bean implementing `PulseCheck`, auto-disc
 
 - Java 21+
 - Maven 3.9+ (or use the project's `../../mvnw`)
-- A GitHub PAT with `read:packages` scope wired into `~/.m2/settings.xml` — see the top-level [README](../../README.md#install) for the full setup, including the `<server id="github-pulse">` entry
+- Internet access — Maven will resolve `pulse-starter` from Maven Central
 
 ## Run
 

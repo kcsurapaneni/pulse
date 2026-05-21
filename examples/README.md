@@ -1,6 +1,6 @@
 # Pulse — runnable examples
 
-Three small Spring Boot apps that demonstrate how to consume Pulse. Each is a standalone Maven project pinned to a released version of `pulse-starter`; clone the repo, `cd` into one, and run `mvn spring-boot:run`.
+Four small Spring Boot apps that demonstrate how to consume Pulse. Each is a standalone Maven project pinned to a released version of `pulse-starter`; clone the repo, `cd` into one, and run `mvn spring-boot:run`.
 
 | # | Folder | Stack | Demonstrates |
 |---|---|---|---|
@@ -12,33 +12,18 @@ Three small Spring Boot apps that demonstrate how to consume Pulse. Each is a st
 ## Prerequisites (all examples)
 
 1. **Java 21+** and **Maven 3.9+** on the path.
-2. A **GitHub Personal Access Token** with the `read:packages` scope so Maven can resolve `dev.kc.pulse:pulse-starter` from GitHub Packages. Add a `<server>` entry to your `~/.m2/settings.xml`:
+2. Internet access — Maven resolves `pulse-starter` from Maven Central; examples 02 and 03 also hit `httpbin.org`; example 04 pulls the Keycloak Testcontainer image and needs Docker running.
 
-   ```xml
-   <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
-     <servers>
-       <server>
-         <id>github-pulse</id>
-         <username>YOUR-GITHUB-USERNAME</username>
-         <password>${env.GITHUB_TOKEN}</password>
-       </server>
-     </servers>
-   </settings>
-   ```
-
-   Then `export GITHUB_TOKEN=...` before running `mvn`. The full setup (and Maven Central as a future alternative that removes this friction) is documented in the top-level [README](../README.md#install).
-
-3. Internet access — examples 02 and 03 hit `httpbin.org`.
+No PAT, no `~/.m2/settings.xml` server entry, no authentication of any kind. From 0.5.0 onward Pulse is on Maven Central — a regular `<dependency>` block resolves it.
 
 ## How these stay in sync with `pulse-starter`
 
-Each example pins to the most recently released version of Pulse (currently **0.4.0**). When a new Pulse release ships, the examples are bumped in the same PR cycle so a fresh clone always works against a real published artefact.
+Each example pins to the most recently released version of Pulse (currently **0.5.0**, on Maven Central as `io.github.kcsurapaneni:pulse-starter`). When a new Pulse release ships, the examples are bumped in the same PR cycle so a fresh clone always works against a real published artefact.
 
 A dedicated CI workflow (`.github/workflows/examples-ci.yml`) compiles every example on push and PR — including a weekly run — so silent drift doesn't accumulate.
 
 ## Not covered (yet)
 
-- OAuth2 (see note above)
 - Custom `HttpClient` override beans (`muleHealthHttpClient`, `oauth2HealthHttpClient`)
 - Programmatic group customisation via `HealthEndpointGroupsPostProcessor`
 

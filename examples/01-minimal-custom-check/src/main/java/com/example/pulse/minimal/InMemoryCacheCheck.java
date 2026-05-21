@@ -4,7 +4,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import dev.kc.pulse.core.PulseCheck;
+import io.github.kcsurapaneni.pulse.core.PulseCheck;
 
 import org.springframework.boot.health.contributor.Health;
 import org.springframework.stereotype.Component;

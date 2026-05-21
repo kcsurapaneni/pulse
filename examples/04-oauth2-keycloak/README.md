@@ -12,7 +12,7 @@ A runnable demo of the `pulse.oauth2` check pointed at a **real IdP** — a Keyc
 
 - Java 21+, Maven 3.9+
 - **Docker** (any flavour: Docker Desktop, Colima, Rancher Desktop) — Testcontainers needs it to start Keycloak
-- A GitHub PAT with `read:packages` in `~/.m2/settings.xml` (see [top-level README](../../README.md#install))
+- Internet access — Maven resolves `pulse-starter` and the Keycloak Testcontainer image
 
 First run will pull the Keycloak image (~500 MB). Subsequent runs reuse the cached image.
 

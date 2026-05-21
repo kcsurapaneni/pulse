@@ -14,8 +14,7 @@ OAuth2 is intentionally skipped here — it needs a real IdP (or a Testcontainer
 ## Prerequisites
 
 - Java 21+, Maven 3.9+
-- A GitHub PAT with `read:packages` in `~/.m2/settings.xml` (see [top-level README](../../README.md#install))
-- Internet access — the Mule entries hit `httpbin.org`
+- Internet access — Maven resolves `pulse-starter` from Maven Central, and the Mule entries hit `httpbin.org`
 
 ## Run
 

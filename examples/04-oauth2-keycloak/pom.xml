@@ -23,13 +23,6 @@
         <testcontainers-keycloak.version>4.2.1</testcontainers-keycloak.version>
     </properties>
 
-    <repositories>
-        <repository>
-            <id>github-pulse</id>
-            <url>https://maven.pkg.github.com/kcsurapaneni/pulse</url>
-        </repository>
-    </repositories>
-
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -47,9 +40,9 @@
         </dependency>
 
         <dependency>
-            <groupId>dev.kc.pulse</groupId>
+            <groupId>io.github.kcsurapaneni</groupId>
             <artifactId>pulse-starter</artifactId>
-            <version>0.4.0</version>
+            <version>0.5.0</version>
         </dependency>
 
         <!-- Testcontainers deps live in test scope so the production classpath of this

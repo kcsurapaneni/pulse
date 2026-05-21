@@ -12,8 +12,7 @@ A non-blocking Spring Boot WebFlux app with one `ReactivePulseCheck` bean. The c
 ## Prerequisites
 
 - Java 21+, Maven 3.9+
-- A GitHub PAT with `read:packages` in `~/.m2/settings.xml` (see [top-level README](../../README.md#install))
-- Internet access — the example check hits `httpbin.org`
+- Internet access — Maven resolves `pulse-starter` from Maven Central, and the example check hits `httpbin.org`
 
 ## Run
 

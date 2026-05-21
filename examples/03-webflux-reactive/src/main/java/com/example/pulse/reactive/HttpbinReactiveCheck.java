@@ -1,6 +1,6 @@
 package com.example.pulse.reactive;
 
-import dev.kc.pulse.core.ReactivePulseCheck;
+import io.github.kcsurapaneni.pulse.core.ReactivePulseCheck;
 
 import org.springframework.boot.health.contributor.Health;
 import org.springframework.stereotype.Component;
