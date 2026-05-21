@@ -18,7 +18,7 @@ No PAT, no `~/.m2/settings.xml` server entry, no authentication of any kind. Fro
 
 ## How these stay in sync with `pulse-starter`
 
-Each example pins to the most recently released version of Pulse (currently **0.5.0**, on Maven Central as `io.github.kcsurapaneni:pulse-starter`). When a new Pulse release ships, the examples are bumped in the same PR cycle so a fresh clone always works against a real published artefact.
+Each example pins to the most recently released version of Pulse (currently **0.6.0**, on Maven Central as `io.github.kcsurapaneni:pulse-starter`). When a new Pulse release ships, the examples are bumped in the same PR cycle so a fresh clone always works against a real published artefact.
 
 A dedicated CI workflow (`.github/workflows/examples-ci.yml`) compiles every example on push and PR — including a weekly run — so silent drift doesn't accumulate.
 

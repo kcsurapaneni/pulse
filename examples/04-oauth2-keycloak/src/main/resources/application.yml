@@ -30,4 +30,26 @@ pulse:
     providers:
       - name: example-idp
         registration-id: example
+        # Default mode is `handshake` — performs a real client_credentials handshake
+        # against the token endpoint on every probe, validating both that the IdP is
+        # reachable AND that the registered credentials still work. Token is cached
+        # and refreshed at 80% of min(token.expires_in, cache-ttl).
         cache-ttl: 1m
+
+        # --- Alternative: reachable mode (opt-in, since Pulse 0.6.0) ---
+        # Set `mode: reachable` to switch to a lighter probe that only GETs the OIDC
+        # discovery document. No credentials are exercised, so a rotated secret won't
+        # be caught here — useful when you have other monitoring that covers
+        # credential breakage. The discovery URL is derived from the registration's
+        # issuer-uri, or set explicitly via `discovery-uri` (escape hatch for
+        # registrations that only configure token-uri).
+        #
+        # To try it against this example's Keycloak, you'd swap the token-uri
+        # injection in TestcontainersConfiguration for an issuer-uri injection
+        # (Spring Security then auto-discovers the rest), and add to the provider
+        # block above:
+        #
+        #   mode: reachable
+        #
+        # The handshake/reachable trade-off table lives in the top-level README
+        # under "OAuth2 check → Validation depth (mode)".
