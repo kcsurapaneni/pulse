@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: pulse-example-oauth2-keycloak
+  security:
+    oauth2:
+      client:
+        registration:
+          example:
+            client-id: test-client
+            client-secret: test-secret
+            authorization-grant-type: client_credentials
+        # provider.example.token-uri is injected at startup by TestcontainersConfiguration
+        # from the Keycloak container's dynamic URL.
+
+management:
+  endpoint:
+    health:
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+pulse:
+  check-timeout: 10s
+  oauth2:
+    enabled: true
+    timeout: 5s
+    probes: [readiness]
+    providers:
+      - name: example-idp
+        registration-id: example
+        cache-ttl: 1m

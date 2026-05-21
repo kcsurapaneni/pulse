@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: pulse-example-all-supported-checks
+
+management:
+  endpoint:
+    health:
+      show-details: always           # required to see Pulse's detail fields
+  endpoints:
+    web:
+      exposure:
+        include: health              # exposes /actuator/health + /liveness + /readiness
+
+pulse:
+  # Outer per-check deadline. Caps the total wall-clock time of any single check,
+  # so a hung mount or stuck HTTP call can't block the whole /actuator/health response.
+  check-timeout: 5s
+
+  mount:
+    enabled: true
+    probes: [liveness, readiness]    # opt in to liveness — a missing critical mount
+                                     # is a genuine reason to restart this pod.
+    points:
+      - name: tmp
+        path: /tmp
+        min-free-bytes: 1048576      # 1 MiB — adjust for your runtime
+      - name: home
+        path: ${user.home}
+        min-free-percent: 5
+
+  mule:
+    enabled: true
+    timeout: 2s
+    probes: [readiness]              # downstream HTTP outage should only drop the pod
+                                     # from the load balancer, not restart it.
+    services:
+      - name: httpbin-ok
+        url: https://httpbin.org/status/200
+        expected-status: 200
+      - name: httpbin-flaky
+        url: https://httpbin.org/status/503
+        expected-status: 200         # mismatched: example shows how DOWN looks

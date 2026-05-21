@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: pulse-example-webflux-reactive
+
+management:
+  endpoint:
+    health:
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+pulse:
+  # ReactivePulseCheck beans honour the same outer deadline via Mono.timeout.
+  check-timeout: 5s
+
+  reactive:
+    probes: [readiness]              # default; here for visibility

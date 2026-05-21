@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Runnable example projects under `examples/`. Four standalone Maven apps pinned to
+  `pulse-starter:0.4.0`, demonstrating (1) the minimal `PulseCheck` SPI, (2) the
+  built-in `mount` + `mule` checks with K8s probe routing, (3) WebFlux +
+  `ReactivePulseCheck`, and (4) `pulse.oauth2` against a real Keycloak started via
+  Spring Boot's Testcontainers integration (`spring-boot:test-run`). Top-level
+  `examples/README.md` indexes them; a dedicated `examples-ci.yml` workflow compiles
+  each on PR / push / weekly so silent drift doesn't accumulate. Not part of the
+  parent `mvn verify` — keeps the main CI fast.
+
 ## [0.4.0] — 2026-05-20
 
 A reactive SPI and an IDE-quality-of-life pass. WebFlux apps now have a first-class

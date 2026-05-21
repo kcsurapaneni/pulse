@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: pulse-example-minimal-custom-check
+
+management:
+  endpoint:
+    health:
+      show-details: always           # required to see the detail fields Pulse adds
+  endpoints:
+    web:
+      exposure:
+        include: health

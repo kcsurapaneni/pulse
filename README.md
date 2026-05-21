@@ -90,6 +90,8 @@ management:
 
 Each Pulse check is **opt-in** via its own `enabled` flag — nothing is registered unless you turn it on. See the per-check sections below.
 
+If you'd rather read code than docs, three runnable example apps live under [`examples/`](examples/): a minimal `PulseCheck` SPI demo, a full built-ins-plus-K8s-probes demo, and a WebFlux `ReactivePulseCheck` demo. Clone, `cd`, `mvn spring-boot:run`.
+
 Pulse contributors also honour Spring Boot's standard kill-switch `management.health.<name>.enabled` (default `true`). Setting `management.health.mount.enabled=false`, for example, disables the `mount` contributor regardless of `pulse.mount.enabled`. This matches the convention Boot's own built-in indicators follow (`management.health.db.enabled`, `management.health.redis.enabled`, etc.) and lets you toggle Pulse on a per-environment basis through the same property namespace you already use.
 
 ## Hung-check protection
