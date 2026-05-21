@@ -7,7 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (breaking)
+- **`groupId` is now `io.github.kcsurapaneni`** (was `dev.kc.pulse`). Required for
+  Maven Central publication, which only verifies namespaces tied to a domain or a
+  GitHub account.
+- **Java packages migrated** from `dev.kc.pulse.*` to `io.github.kcsurapaneni.pulse.*`.
+  Consumers referencing Pulse SPI types directly (`PulseCheck`,
+  `ReactivePulseCheck`, etc.) update their `import` statements once on the move
+  from 0.4.0 → 0.5.0.
+
+  Migration in a consumer pom:
+  ```diff
+  - <groupId>dev.kc.pulse</groupId>
+  + <groupId>io.github.kcsurapaneni</groupId>
+    <artifactId>pulse-starter</artifactId>
+  - <version>0.4.0</version>
+  + <version>0.5.0</version>
+  ```
+
+  Migration in consumer source:
+  ```diff
+  - import dev.kc.pulse.core.PulseCheck;
+  + import io.github.kcsurapaneni.pulse.core.PulseCheck;
+  ```
+
+  All 0.1.0–0.4.0 artefacts remain accessible from GitHub Packages under the
+  original `dev.kc.pulse` coordinates.
+
 ### Added
+- POM metadata required by Maven Central: `<url>`, `<licenses>` (Apache-2.0),
+  `<developers>`, `<scm>`. Verbatim Apache 2.0 `LICENSE` file at the repo root.
 - Runnable example projects under `examples/`. Four standalone Maven apps pinned to
   `pulse-starter:0.4.0`, demonstrating (1) the minimal `PulseCheck` SPI, (2) the
   built-in `mount` + `mule` checks with K8s probe routing, (3) WebFlux +

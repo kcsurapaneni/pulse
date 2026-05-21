@@ -1,5 +1,5 @@
-dev.kc.pulse.core.PulseAutoConfiguration
-dev.kc.pulse.core.PulseReactiveAutoConfiguration
-dev.kc.pulse.mount.MountPointAutoConfiguration
-dev.kc.pulse.mule.MuleAutoConfiguration
-dev.kc.pulse.oauth2.OAuth2AutoConfiguration
+io.github.kcsurapaneni.pulse.core.PulseAutoConfiguration
+io.github.kcsurapaneni.pulse.core.PulseReactiveAutoConfiguration
+io.github.kcsurapaneni.pulse.mount.MountPointAutoConfiguration
+io.github.kcsurapaneni.pulse.mule.MuleAutoConfiguration
+io.github.kcsurapaneni.pulse.oauth2.OAuth2AutoConfiguration

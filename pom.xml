@@ -8,11 +8,35 @@
         <version>4.0.6</version>
         <relativePath/>
     </parent>
-    <groupId>dev.kc.pulse</groupId>
+    <groupId>io.github.kcsurapaneni</groupId>
     <artifactId>pulse-starter</artifactId>
     <version>0.5.0-SNAPSHOT</version>
     <name>pulse-starter</name>
     <description>Pulse: reusable Spring Boot Actuator health indicators for mount points, OAuth2 providers, and Mule services.</description>
+    <url>https://github.com/kcsurapaneni/pulse</url>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Krishna Chaitanya Surapaneni</name>
+            <email>chaitanya1004@gmail.com</email>
+            <url>https://github.com/kcsurapaneni</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/kcsurapaneni/pulse.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/kcsurapaneni/pulse.git</developerConnection>
+        <url>https://github.com/kcsurapaneni/pulse</url>
+        <tag>HEAD</tag>
+    </scm>
 
     <properties>
         <java.version>21</java.version>
