@@ -1,23 +1,30 @@
 name: Maven Package
 
-# Publishes the artifact to GitHub Packages whenever a Release is created
-# in the GitHub UI (or via `gh release create`). The workflow:
+# Publishes the artifact to Maven Central whenever a Release is created in the GitHub UI
+# (or via `gh release create`). The workflow:
 #   1. Checks out the tagged commit
-#   2. Builds + runs unit AND integration tests (./mvnw verify)
-#   3. Deploys the main / sources / javadoc jars to maven.pkg.github.com
-# The github.token secret is auto-provisioned per run and scoped via the
-# permissions block below — no PAT setup required.
+#   2. Imports the GPG signing key from the GPG_PRIVATE_KEY secret
+#   3. Builds + runs unit AND integration tests (./mvnw verify)
+#   4. Deploys to Maven Central via the release profile, which:
+#        - signs main/sources/javadoc jars with maven-gpg-plugin
+#        - uploads via central-publishing-maven-plugin and waits until Central reports
+#          the artefact is publicly resolvable
+#
+# Required GitHub secrets (configure under repo Settings > Secrets > Actions):
+#   - CENTRAL_USERNAME / CENTRAL_PASSWORD: user token from https://central.sonatype.com
+#   - GPG_PRIVATE_KEY:                     ASCII-armored private key
+#                                          (`gpg --armor --export-secret-keys $KEY_ID`)
+#   - GPG_PASSPHRASE:                      the key's passphrase
 
 on:
   release:
     types: [created]
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
 
     steps:
       - uses: actions/checkout@v6
@@ -28,13 +35,22 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
-          server-id: github          # matches <distributionManagement><repository><id> in pom.xml
-          settings-path: ${{ github.workspace }}
+          server-id: central                 # matches <publishingServerId> in pom.xml release profile
+          server-username: MAVEN_USERNAME    # name of env var the generated settings.xml reads
+          server-password: MAVEN_PASSWORD    # ditto
 
-      - name: Build and test
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Build and verify
         run: ./mvnw -B verify --file pom.xml
 
-      - name: Publish to GitHub Packages
-        run: ./mvnw -B deploy -s $GITHUB_WORKSPACE/settings.xml -DskipTests
+      - name: Publish to Maven Central
+        run: ./mvnw -B deploy -Prelease -DskipTests --file pom.xml
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          MAVEN_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}

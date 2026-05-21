@@ -37,6 +37,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - POM metadata required by Maven Central: `<url>`, `<licenses>` (Apache-2.0),
   `<developers>`, `<scm>`. Verbatim Apache 2.0 `LICENSE` file at the repo root.
+- Maven Central publishing pipeline. A `release` profile in `pom.xml` wires
+  `maven-gpg-plugin` (signs every artefact; required by Central) and
+  `central-publishing-maven-plugin` 0.7.0 (handles upload + staging + release
+  via the Central Portal API). The `maven-publish.yml` workflow now imports
+  the GPG key, runs `./mvnw verify`, then `./mvnw deploy -Prelease`. Credentials
+  come from the `CENTRAL_USERNAME` / `CENTRAL_PASSWORD` / `GPG_PRIVATE_KEY` /
+  `GPG_PASSPHRASE` GitHub secrets. The workflow blocks until Central reports
+  the artefact is publicly resolvable (`<waitUntil>published</waitUntil>`).
 - Runnable example projects under `examples/`. Four standalone Maven apps pinned to
   `pulse-starter:0.4.0`, demonstrating (1) the minimal `PulseCheck` SPI, (2) the
   built-in `mount` + `mule` checks with K8s probe routing, (3) WebFlux +

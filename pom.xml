@@ -126,14 +126,6 @@
         </dependency>
     </dependencies>
 
-    <distributionManagement>
-        <repository>
-            <id>github</id>
-            <name>GitHub Packages</name>
-            <url>https://maven.pkg.github.com/kcsurapaneni/pulse</url>
-        </repository>
-    </distributionManagement>
-
     <build>
         <plugins>
             <plugin>
@@ -233,5 +225,68 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+            Activated by the publish workflow with `-Prelease`. Signs every artefact with GPG
+            (Maven Central rejects unsigned artefacts) and uploads via the official
+            central-publishing-maven-plugin instead of maven-deploy-plugin. The plugin handles
+            the upload-bundle / staging / release ceremony against the Central Portal.
+
+            Kept out of the default build so local `mvn install` doesn't need GPG configured.
+        -->
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                                <configuration>
+                                    <!-- Required in CI: gpg uses the loopback flow so it never
+                                         attempts to pop an interactive pinentry dialog. The
+                                         passphrase is read from the MAVEN_GPG_PASSPHRASE env
+                                         var (maven-gpg-plugin 3.1+ does this automatically). -->
+                                    <gpgArguments>
+                                        <arg>--pinentry-mode</arg>
+                                        <arg>loopback</arg>
+                                    </gpgArguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.7.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <!-- Matches the <server id="central"> in the workflow-generated
+                                 settings.xml, which itself reads MAVEN_USERNAME /
+                                 MAVEN_PASSWORD env vars. -->
+                            <publishingServerId>central</publishingServerId>
+                            <!-- autoPublish=true releases the artefact as soon as Central
+                                 validation passes. Flip to false if you want a manual
+                                 "Publish" click in the Central Portal UI before the version
+                                 becomes public. -->
+                            <autoPublish>true</autoPublish>
+                            <!-- Block the Maven build until Central reports the artefact is
+                                 actually publicly resolvable. Makes the workflow's green
+                                 status mean "consumers can pull this version right now." -->
+                            <waitUntil>published</waitUntil>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>
