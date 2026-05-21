@@ -10,7 +10,7 @@
     </parent>
     <groupId>io.github.kcsurapaneni</groupId>
     <artifactId>pulse-starter</artifactId>
-    <version>0.6.0</version>
+    <version>0.7.0-SNAPSHOT</version>
     <name>pulse-starter</name>
     <description>Pulse: reusable Spring Boot Actuator health indicators for mount points, OAuth2 providers, and Mule services.</description>
     <url>https://github.com/kcsurapaneni/pulse</url>
