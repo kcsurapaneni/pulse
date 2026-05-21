@@ -7,6 +7,7 @@ import java.time.Duration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dasniko.testcontainers.keycloak.KeycloakContainer;
 
+import io.github.kcsurapaneni.pulse.oauth2.OAuth2Properties.CheckMode;
 import io.github.kcsurapaneni.pulse.oauth2.OAuth2Properties.Provider;
 
 import org.junit.jupiter.api.Test;
@@ -77,6 +78,28 @@ class OAuth2CheckKeycloakIT {
 
         assertThat(second.getStatus()).isEqualTo(Status.UP);
         assertThat(second.getDetails()).containsEntry("cached", true);
+    }
+
+    @Test
+    void reachableModeHitsDiscoveryDocument() {
+        // Reachable mode against a real Keycloak: GET the discovery doc, expect 200. Credentials
+        // are not exercised — wrong-secret + reachable should still report UP.
+        Provider p = new Provider();
+        p.setName("kc");
+        p.setRegistrationId("kc");
+        p.setMode(CheckMode.REACHABLE);
+        p.setDiscoveryUri(KEYCLOAK.getAuthServerUrl() + "/realms/test/.well-known/openid-configuration");
+        OAuth2Check check = new OAuth2Check(p,
+                new InMemoryClientRegistrationRepository(buildRegistration("test-client", "wrong-secret")),
+                HttpClient.newHttpClient(), Duration.ofSeconds(10), Clock.systemUTC(),
+                new ObjectMapper());
+
+        Health health = check.check();
+
+        assertThat(health.getStatus()).isEqualTo(Status.UP);
+        assertThat(health.getDetails())
+                .containsEntry("mode", "reachable")
+                .containsEntry("httpStatus", 200);
     }
 
     private OAuth2Check newCheck(ClientRegistration registration) {

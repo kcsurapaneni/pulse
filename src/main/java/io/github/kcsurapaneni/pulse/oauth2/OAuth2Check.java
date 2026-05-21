@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.github.kcsurapaneni.pulse.core.PulseCheck;
+import io.github.kcsurapaneni.pulse.oauth2.OAuth2Properties.CheckMode;
 import io.github.kcsurapaneni.pulse.oauth2.OAuth2Properties.Provider;
 
 import org.springframework.boot.health.contributor.Health;
@@ -57,7 +58,10 @@ public class OAuth2Check implements PulseCheck {
 
     @Override
     public Health check() {
-        Health.Builder b = new Health.Builder().withDetail("registrationId", config.getRegistrationId());
+        CheckMode mode = config.getMode() != null ? config.getMode() : CheckMode.HANDSHAKE;
+        Health.Builder b = new Health.Builder()
+                .withDetail("registrationId", config.getRegistrationId())
+                .withDetail("mode", mode.name().toLowerCase());
 
         ClientRegistration registration = registrations.findByRegistrationId(config.getRegistrationId());
         if (registration == null) {
@@ -66,6 +70,13 @@ public class OAuth2Check implements PulseCheck {
                     .build();
         }
 
+        if (mode == CheckMode.REACHABLE) {
+            return performReachabilityCheck(b, registration);
+        }
+        return performHandshakeMode(b, registration);
+    }
+
+    private Health performHandshakeMode(Health.Builder b, ClientRegistration registration) {
         String tokenUri = registration.getProviderDetails() != null
                 ? registration.getProviderDetails().getTokenUri()
                 : null;
@@ -91,6 +102,69 @@ public class OAuth2Check implements PulseCheck {
                     .build();
         }
         return performHandshake(b, registration, tokenUri, now);
+    }
+
+    private Health performReachabilityCheck(Health.Builder b, ClientRegistration registration) {
+        String discoveryUri = resolveDiscoveryUri(registration);
+        if (discoveryUri == null) {
+            return b.down()
+                    .withDetail("error", "reachable mode requires either "
+                            + "pulse.oauth2.providers[].discovery-uri or "
+                            + "spring.security.oauth2.client.provider.<id>.issuer-uri to be set")
+                    .build();
+        }
+        b.withDetail("discoveryUri", discoveryUri);
+
+        HttpRequest request;
+        try {
+            request = HttpRequest.newBuilder()
+                    .uri(URI.create(discoveryUri))
+                    .timeout(timeout)
+                    .header("Accept", "application/json")
+                    .GET()
+                    .build();
+        }
+        catch (IllegalArgumentException ex) {
+            return b.down().withDetail("error", "invalid discovery-uri: " + ex.getMessage()).build();
+        }
+
+        try {
+            HttpResponse<Void> response = httpClient.send(request, BodyHandlers.discarding());
+            b.withDetail("httpStatus", response.statusCode());
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                return b.up().build();
+            }
+            String error = "discovery endpoint returned " + response.statusCode();
+            if (response.statusCode() == 404) {
+                error += " (check issuer-uri / discovery-uri)";
+            }
+            return b.down().withDetail("error", error).build();
+        }
+        catch (IOException ex) {
+            return b.down()
+                    .withDetail("error", ex.getClass().getSimpleName() + ": " + ex.getMessage())
+                    .build();
+        }
+        catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            return b.down().withDetail("error", "interrupted").build();
+        }
+    }
+
+    private String resolveDiscoveryUri(ClientRegistration registration) {
+        if (config.getDiscoveryUri() != null && !config.getDiscoveryUri().isBlank()) {
+            return config.getDiscoveryUri();
+        }
+        String issuerUri = registration.getProviderDetails() != null
+                ? registration.getProviderDetails().getIssuerUri()
+                : null;
+        if (issuerUri == null || issuerUri.isBlank()) {
+            return null;
+        }
+        String trimmed = issuerUri.endsWith("/")
+                ? issuerUri.substring(0, issuerUri.length() - 1)
+                : issuerUri;
+        return trimmed + "/.well-known/openid-configuration";
     }
 
     private Health performHandshake(Health.Builder b, ClientRegistration registration,

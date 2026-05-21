@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.github.kcsurapaneni.pulse.oauth2.OAuth2Properties.CheckMode;
 import io.github.kcsurapaneni.pulse.oauth2.OAuth2Properties.Provider;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -323,11 +324,201 @@ class OAuth2CheckTest {
         assertThat(acceptedRequests.get()).isEqualTo(1);
     }
 
+    // ---------- REACHABLE mode ----------
+
+    @Test
+    void reachableUpOnDiscoveryDoc200() {
+        AtomicInteger calls = new AtomicInteger();
+        server.createContext("/.well-known/openid-configuration", exchange -> {
+            calls.incrementAndGet();
+            writeResponse(exchange, 200, "{\"issuer\":\"http://127.0.0.1\"}");
+        });
+        server.start();
+
+        Provider p = reachableProviderWithDiscoveryUri(url("/.well-known/openid-configuration"));
+        Health health = newCheckWithProvider(p,
+                repoWith(registrationWithoutSecret("test", url("/token"))),
+                Clock.systemUTC()).check();
+
+        assertThat(health.getStatus()).isEqualTo(Status.UP);
+        assertThat(health.getDetails())
+                .containsEntry("mode", "reachable")
+                .containsEntry("httpStatus", 200)
+                .containsEntry("discoveryUri", url("/.well-known/openid-configuration"));
+        assertThat(calls.get()).isEqualTo(1);
+    }
+
+    @Test
+    void reachableDownOnDiscoveryDoc500() {
+        server.createContext("/.well-known/openid-configuration", respond(503, ""));
+        server.start();
+
+        Provider p = reachableProviderWithDiscoveryUri(url("/.well-known/openid-configuration"));
+        Health health = newCheckWithProvider(p,
+                repoWith(registrationWithoutSecret("test", url("/token"))),
+                Clock.systemUTC()).check();
+
+        assertThat(health.getStatus()).isEqualTo(Status.DOWN);
+        assertThat(health.getDetails()).containsEntry("httpStatus", 503);
+        assertThat((String) health.getDetails().get("error")).contains("503");
+    }
+
+    @Test
+    void reachableDownOn404IncludesHint() {
+        server.createContext("/.well-known/openid-configuration", respond(404, ""));
+        server.start();
+
+        Provider p = reachableProviderWithDiscoveryUri(url("/.well-known/openid-configuration"));
+        Health health = newCheckWithProvider(p,
+                repoWith(registrationWithoutSecret("test", url("/token"))),
+                Clock.systemUTC()).check();
+
+        assertThat(health.getStatus()).isEqualTo(Status.DOWN);
+        assertThat((String) health.getDetails().get("error"))
+                .contains("404")
+                .contains("issuer-uri / discovery-uri");
+    }
+
+    @Test
+    void reachableDownWhenNeitherDiscoveryUriNorIssuerUriSet() {
+        // No discoveryUri on Provider, and the registration has only a token-uri (no issuer-uri).
+        Provider p = new Provider();
+        p.setName("test");
+        p.setRegistrationId("test");
+        p.setMode(CheckMode.REACHABLE);
+
+        Health health = newCheckWithProvider(p,
+                repoWith(registrationWithoutSecret("test", url("/token"))),
+                Clock.systemUTC()).check();
+
+        assertThat(health.getStatus()).isEqualTo(Status.DOWN);
+        assertThat((String) health.getDetails().get("error"))
+                .contains("reachable mode requires")
+                .contains("discovery-uri")
+                .contains("issuer-uri");
+        // The mode should still surface so operators can see what we were trying to do.
+        assertThat(health.getDetails()).containsEntry("mode", "reachable");
+    }
+
+    @Test
+    void reachableUsesExplicitDiscoveryUriOverIssuer() {
+        // Server only serves /alt. If the check derived from a (non-existent) issuer-uri we'd 404.
+        AtomicInteger altHits = new AtomicInteger();
+        server.createContext("/alt", exchange -> {
+            altHits.incrementAndGet();
+            writeResponse(exchange, 200, "{}");
+        });
+        server.start();
+
+        Provider p = reachableProviderWithDiscoveryUri(url("/alt"));
+        // Issuer URI present but pointing elsewhere — explicit override should win.
+        ClientRegistration reg = ClientRegistration.withRegistrationId("test")
+                .clientId("client").clientSecret("secret")
+                .tokenUri("https://elsewhere.example/token")
+                .issuerUri("https://elsewhere.example/issuer")
+                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
+                .build();
+
+        Health health = newCheckWithProvider(p, new InMemoryClientRegistrationRepository(reg),
+                Clock.systemUTC()).check();
+
+        assertThat(health.getStatus()).isEqualTo(Status.UP);
+        assertThat(health.getDetails()).containsEntry("discoveryUri", url("/alt"));
+        assertThat(altHits.get()).isEqualTo(1);
+    }
+
+    @Test
+    void reachableDerivesDiscoveryUriFromIssuerWithTrailingSlash() {
+        AtomicInteger hits = new AtomicInteger();
+        server.createContext("/realm/.well-known/openid-configuration", exchange -> {
+            hits.incrementAndGet();
+            writeResponse(exchange, 200, "{}");
+        });
+        server.start();
+
+        Provider p = new Provider();
+        p.setName("test");
+        p.setRegistrationId("test");
+        p.setMode(CheckMode.REACHABLE);
+
+        // Trailing slash on issuer-uri — check we strip it (don't produce '//.well-known/...').
+        ClientRegistration reg = ClientRegistration.withRegistrationId("test")
+                .clientId("client").clientSecret("secret")
+                .tokenUri(url("/token"))
+                .issuerUri(url("/realm") + "/")
+                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
+                .build();
+
+        Health health = newCheckWithProvider(p, new InMemoryClientRegistrationRepository(reg),
+                Clock.systemUTC()).check();
+
+        assertThat(health.getStatus()).isEqualTo(Status.UP);
+        assertThat(health.getDetails()).containsEntry("discoveryUri",
+                url("/realm/.well-known/openid-configuration"));
+        assertThat(hits.get()).isEqualTo(1);
+    }
+
+    @Test
+    void reachableDoesNotRequireClientSecret() {
+        // Reachable mode must work when the registration has no client-secret — that's the whole
+        // point of the mode (cheap network probe without exercising credentials).
+        AtomicInteger hits = new AtomicInteger();
+        server.createContext("/.well-known/openid-configuration", exchange -> {
+            hits.incrementAndGet();
+            writeResponse(exchange, 200, "{}");
+        });
+        server.start();
+
+        Provider p = reachableProviderWithDiscoveryUri(url("/.well-known/openid-configuration"));
+        ClientRegistration reg = ClientRegistration.withRegistrationId("test")
+                .clientId("client").clientSecret("placeholder")
+                .tokenUri(url("/token"))
+                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
+                .build();
+
+        Health health = newCheckWithProvider(p, new InMemoryClientRegistrationRepository(reg),
+                Clock.systemUTC()).check();
+
+        assertThat(health.getStatus()).isEqualTo(Status.UP);
+        assertThat(hits.get()).isEqualTo(1);
+        // Reachable mode must not leak the clientId into details — only handshake mode does that.
+        assertThat(health.getDetails()).doesNotContainKey("clientId");
+    }
+
     private OAuth2Check newCheck(ClientRegistrationRepository repo, Clock clock) {
         Provider p = new Provider();
         p.setName("test");
         p.setRegistrationId("test");
         return new OAuth2Check(p, repo, httpClient, Duration.ofSeconds(2), clock, objectMapper);
+    }
+
+    private OAuth2Check newCheckWithProvider(Provider p, ClientRegistrationRepository repo, Clock clock) {
+        return new OAuth2Check(p, repo, httpClient, Duration.ofSeconds(2), clock, objectMapper);
+    }
+
+    private Provider reachableProviderWithDiscoveryUri(String discoveryUri) {
+        Provider p = new Provider();
+        p.setName("test");
+        p.setRegistrationId("test");
+        p.setMode(CheckMode.REACHABLE);
+        p.setDiscoveryUri(discoveryUri);
+        return p;
+    }
+
+    private static ClientRegistration registrationWithoutSecret(String id, String tokenUri) {
+        // Spring Security requires a non-blank client-secret on a CLIENT_SECRET_POST registration
+        // (validated by ClientRegistration.Builder), so we use a placeholder. The reachable path
+        // doesn't read the secret, which is what these tests are verifying.
+        return ClientRegistration.withRegistrationId(id)
+                .clientId("client")
+                .clientSecret("placeholder")
+                .tokenUri(tokenUri)
+                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
+                .build();
     }
 
     private static ClientRegistration registration(String id, String tokenUri,

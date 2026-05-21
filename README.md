@@ -182,8 +182,6 @@ The shared `HttpClient` is exposed as bean `muleHealthHttpClient`; supply your o
 
 This check **reuses your existing Spring Security `ClientRegistration` config** — you do not duplicate `client-id` / `client-secret` / `token-uri` into `pulse` config. Each provider entry just points at a registration id from `spring.security.oauth2.client.registration.*`. Rotating a secret in the existing config flows to the health check automatically — the `ClientRegistration` is re-resolved on every probe.
 
-For each provider, the library performs a real `client_credentials` handshake against the token endpoint. The access token is cached and refreshed at **80%** of `min(token.expires_in, cache-ttl)` — so a typical 1-hour IdP token with the default 5-minute `cache-ttl` triggers a fresh handshake roughly every 4 minutes. The token value itself is **never** included in health details.
-
 ```yaml
 # Your existing Spring Security OAuth2 client config — unchanged
 spring:
@@ -211,19 +209,58 @@ pulse:
         cache-ttl: 5m
 ```
 
-Configuration:
+### Validation depth (`mode`)
 
-| Property                                          | Default | Description                                              |
-|---------------------------------------------------|---------|----------------------------------------------------------|
-| `pulse.oauth2.enabled`                    | `false` | Master switch                                            |
-| `pulse.oauth2.timeout`                    | `3s`    | Per-request and connect timeout                          |
-| `pulse.oauth2.providers[].name`           | —       | Component key under `oauth2.<name>`                      |
-| `pulse.oauth2.providers[].registration-id`| —       | Id of an existing `spring.security.oauth2.client.registration.<id>` |
-| `pulse.oauth2.providers[].cache-ttl`      | `5m`    | Upper bound on token reuse (always capped by token expiry) |
+Each provider has a `mode` controlling what the check verifies on every probe:
 
-The check honours the registration's `client-authentication-method`: `client_secret_basic` sends creds in the `Authorization: Basic …` header; `client_secret_post` (default) sends them in the form body. JWT-based methods aren't supported.
+| Mode | What it does | Catches | Misses |
+|------|--------------|---------|--------|
+| `handshake` (default) | Real `client_credentials` handshake against the token endpoint. Token cached + refreshed at **80%** of `min(token.expires_in, cache-ttl)`. | IdP outage **and** credential breakage (rotated secret, expired client, scope changes). | — |
+| `reachable` | GETs the OIDC discovery document. No credentials exercised. | IdP outage, DNS failures, TLS issues. | Credential breakage. |
 
-If the `registration-id` doesn't exist in the consumer's `ClientRegistrationRepository`, or the registration is missing `client-id` / `client-secret` / `token-uri`, the check reports `DOWN` with an explanatory `error` detail rather than failing at startup — secrets that haven't been wired up yet are usually a runtime problem, not a config-time one.
+The token value itself is **never** included in health details in either mode.
+
+`reachable` mode is useful when:
+
+- You want a cheap probe and have other monitoring that catches credential rotation breakage.
+- The OAuth2 client is configured but rarely exercised — e.g. an emergency fallback flow — and you don't want to repeatedly hit the IdP just to confirm the server is up.
+- The registration's `client-credentials` flow isn't actually enabled at the IdP (so handshake would always 401), but you still want to verify the IdP is reachable.
+
+```yaml
+pulse:
+  oauth2:
+    enabled: true
+    providers:
+      - name: okta
+        registration-id: okta
+        mode: reachable
+```
+
+In `reachable` mode the discovery URL is resolved in this order:
+
+1. **Explicit `discovery-uri`** on the Pulse provider config — used as-is.
+2. **Derived from `issuer-uri`** on the Spring Security registration — `<issuer-uri>/.well-known/openid-configuration`. A trailing `/` on the issuer is handled.
+3. If neither is set, the check reports `DOWN` with an explanatory error.
+
+The second path is the recommended one — set `spring.security.oauth2.client.provider.<id>.issuer-uri` and Spring Security will auto-discover `token-uri` and the rest for you. The explicit `discovery-uri` is an escape hatch for registrations that configure `token-uri` directly without an `issuer-uri`.
+
+A 2xx response is `UP`; 5xx and 4xx (including 404 — with a hint pointing at the discovery URL) are `DOWN`. Connection errors and timeouts are `DOWN`.
+
+### Configuration reference
+
+| Property                                          | Default     | Description                                              |
+|---------------------------------------------------|-------------|----------------------------------------------------------|
+| `pulse.oauth2.enabled`                    | `false`     | Master switch                                            |
+| `pulse.oauth2.timeout`                    | `3s`        | Per-request and connect timeout                          |
+| `pulse.oauth2.providers[].name`           | —           | Component key under `oauth2.<name>`                      |
+| `pulse.oauth2.providers[].registration-id`| —           | Id of an existing `spring.security.oauth2.client.registration.<id>` |
+| `pulse.oauth2.providers[].mode`           | `handshake` | `handshake` (real token call) or `reachable` (discovery doc GET) |
+| `pulse.oauth2.providers[].discovery-uri`  | —           | Explicit OIDC discovery URL. `reachable` mode only; overrides issuer derivation |
+| `pulse.oauth2.providers[].cache-ttl`      | `5m`        | Upper bound on token reuse, always capped by token expiry. `handshake` mode only |
+
+The check honours the registration's `client-authentication-method`: `client_secret_basic` sends creds in the `Authorization: Basic …` header; `client_secret_post` (default) sends them in the form body. JWT-based methods aren't supported. (Authentication method only applies in `handshake` mode.)
+
+If the `registration-id` doesn't exist in the consumer's `ClientRegistrationRepository`, or — in `handshake` mode — the registration is missing `client-id` / `client-secret` / `token-uri`, the check reports `DOWN` with an explanatory `error` detail rather than failing at startup — secrets that haven't been wired up yet are usually a runtime problem, not a config-time one.
 
 The shared `HttpClient` is exposed as bean `oauth2HealthHttpClient` (separate from `muleHealthHttpClient` so their timeouts don't conflict).
 
@@ -370,9 +407,11 @@ The nested `details` fields require `management.endpoint.health.show-details: al
 | Mule endpoint returns wrong status                     | `DOWN` | `details.httpStatus`                       |
 | Mule endpoint unreachable / times out                  | `DOWN` | `details.error`                            |
 | OAuth2 `registration-id` not in `ClientRegistrationRepository` | `DOWN` | `details.error`                  |
-| OAuth2 token endpoint returns 4xx                      | `DOWN` | `details.httpStatus`, `details.error`      |
-| OAuth2 token endpoint unreachable                      | `DOWN` | `details.error`                            |
-| OAuth2 success response is unparseable                 | `DOWN` | `details.error`                            |
+| OAuth2 handshake mode — token endpoint returns 4xx     | `DOWN` | `details.httpStatus`, `details.error`      |
+| OAuth2 handshake mode — token endpoint unreachable     | `DOWN` | `details.error`                            |
+| OAuth2 handshake mode — success response is unparseable | `DOWN` | `details.error`                            |
+| OAuth2 reachable mode — discovery doc returns non-2xx  | `DOWN` | `details.httpStatus`, `details.error`      |
+| OAuth2 reachable mode — neither `discovery-uri` nor `issuer-uri` configured | `DOWN` | `details.error` |
 | SPI `check()` throws                                   | `DOWN` | `details.error` (exception captured)       |
 
 ## Changelog

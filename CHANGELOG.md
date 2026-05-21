@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`pulse.oauth2.providers[].mode`** controls validation depth on every probe. Default
+  `handshake` preserves the existing behaviour (real `client_credentials` call against the
+  token endpoint, validates both IdP availability and credential validity). Opt-in `reachable`
+  GETs the OIDC discovery document only — lighter, no credentials exercised, useful when
+  another monitor catches credential breakage or when the IdP `client_credentials` flow
+  isn't actually enabled for the registration. Non-breaking: existing consumers see no
+  behavioural change.
+- **`pulse.oauth2.providers[].discovery-uri`** explicit override for `reachable` mode.
+  Otherwise the URL is derived as `<issuer-uri>/.well-known/openid-configuration` from
+  Spring Security's `spring.security.oauth2.client.provider.<id>.issuer-uri`. Provides
+  an escape hatch for registrations that configure `token-uri` directly without an
+  `issuer-uri`.
+
 ## [0.5.0] — 2026-05-20
 
 Pulse is now on **Maven Central**. The GitHub Packages PAT / `settings.xml` setup

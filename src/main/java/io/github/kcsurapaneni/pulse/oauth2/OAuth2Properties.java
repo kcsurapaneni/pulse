@@ -89,9 +89,29 @@ public class OAuth2Properties {
         private String registrationId;
 
         /**
+         * What to verify on each probe. {@link CheckMode#HANDSHAKE} (default) performs a real
+         * {@code client_credentials} handshake and proves both that the IdP is up <em>and</em>
+         * that the registered credentials still work. {@link CheckMode#REACHABLE} only GETs the
+         * OIDC discovery document — lighter, no credentials exercised, but a rotated secret
+         * won't be caught.
+         */
+        private CheckMode mode = CheckMode.HANDSHAKE;
+
+        /**
+         * Explicit URL of the OIDC discovery document used by {@link CheckMode#REACHABLE}.
+         * Optional — when blank, the URL is derived as
+         * {@code <issuer-uri>/.well-known/openid-configuration} from the registration's
+         * {@code provider.<id>.issuer-uri}. Set this only if your Spring Security registration
+         * configures {@code token-uri} directly (without {@code issuer-uri}) and you still want
+         * reachable mode.
+         */
+        private String discoveryUri;
+
+        /**
          * Upper bound on token reuse between live handshakes. The cache refreshes at 80 % of
          * {@code min(token.expires_in, cache-ttl)}, so a typical 1-hour IdP token with the
-         * default 5-minute TTL re-handshakes every ~4 minutes.
+         * default 5-minute TTL re-handshakes every ~4 minutes. Only applied in
+         * {@link CheckMode#HANDSHAKE}.
          */
         private Duration cacheTtl = Duration.ofMinutes(5);
 
@@ -111,6 +131,22 @@ public class OAuth2Properties {
             this.registrationId = registrationId;
         }
 
+        public CheckMode getMode() {
+            return mode;
+        }
+
+        public void setMode(CheckMode mode) {
+            this.mode = mode;
+        }
+
+        public String getDiscoveryUri() {
+            return discoveryUri;
+        }
+
+        public void setDiscoveryUri(String discoveryUri) {
+            this.discoveryUri = discoveryUri;
+        }
+
         public Duration getCacheTtl() {
             return cacheTtl;
         }
@@ -118,5 +154,26 @@ public class OAuth2Properties {
         public void setCacheTtl(Duration cacheTtl) {
             this.cacheTtl = cacheTtl;
         }
+    }
+
+    /**
+     * Depth of validation performed on every probe.
+     */
+    public enum CheckMode {
+
+        /**
+         * GET the OIDC discovery document at
+         * {@code <issuer-uri>/.well-known/openid-configuration} (or the explicit
+         * {@code discovery-uri}). UP on 2xx, DOWN on 5xx / 4xx / network error. No credentials
+         * are exercised — a rotated secret won't be caught here.
+         */
+        REACHABLE,
+
+        /**
+         * Perform a real {@code client_credentials} handshake against the token endpoint. Proves
+         * IdP availability <em>and</em> credential validity. Default — preserves Pulse 0.1–0.5
+         * behaviour.
+         */
+        HANDSHAKE
     }
 }

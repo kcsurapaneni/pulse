@@ -51,6 +51,19 @@
           "description": "Include in /actuator/health/readiness. Failure here will remove the pod from the Kubernetes service load balancer without restarting it."
         }
       ]
+    },
+    {
+      "name": "pulse.oauth2.providers[].mode",
+      "values": [
+        {
+          "value": "handshake",
+          "description": "Default. Performs a real client_credentials handshake against the token endpoint, verifying both IdP availability and credential validity."
+        },
+        {
+          "value": "reachable",
+          "description": "GETs the OIDC discovery document only. Lighter and credential-free, but a rotated secret won't be caught."
+        }
+      ]
     }
   ]
 }
