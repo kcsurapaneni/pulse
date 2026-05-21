@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-05-20
+
+Pulse is now on **Maven Central**. The GitHub Packages PAT / `settings.xml` setup
+goes away for consumers — a single `<dependency>` block resolves the library, just
+like Spring Boot or Jackson. Costs are a new groupId (`io.github.kcsurapaneni`)
+and migrated Java packages (`io.github.kcsurapaneni.pulse.*`); both are breaking
+on the 0.4.0 → 0.5.0 hop and stay stable after.
+
 ### Changed (breaking)
 - **`groupId` is now `io.github.kcsurapaneni`** (was `dev.kc.pulse`). Required for
   Maven Central publication, which only verifies namespaces tied to a domain or a
@@ -174,7 +182,8 @@ with uniform `latencyMs` / `lastSuccessAt` / `lastFailureAt` decoration.
 - 39 unit + auto-configuration slice tests
 - 8 integration tests (Keycloak Testcontainer for OAuth2, WireMock for Mule HTTP)
 
-[Unreleased]: https://github.com/kcsurapaneni/pulse/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/kcsurapaneni/pulse/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/kcsurapaneni/pulse/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/kcsurapaneni/pulse/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/kcsurapaneni/pulse/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/kcsurapaneni/pulse/compare/v0.1.0...v0.2.0

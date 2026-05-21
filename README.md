@@ -23,24 +23,17 @@ All checks register as standard `HealthContributor`s and surface under `/actuato
 
 ## Install
 
-`pulse-starter` is published to **GitHub Packages**. Consumers need three pieces of config: the dependency + repository, authentication for Maven, and the actuator health endpoint enabled with details.
+`pulse-starter` is published to **Maven Central**, so no extra repository or authentication is needed — a regular `<dependency>` block resolves it.
 
-### 1. Add the dependency and repository
+### 1. Add the dependency
 
 In your consumer app's `pom.xml`:
 
 ```xml
-<repositories>
-  <repository>
-    <id>github-pulse</id>
-    <url>https://maven.pkg.github.com/kcsurapaneni/pulse</url>
-  </repository>
-</repositories>
-
 <dependency>
-  <groupId>dev.kc.pulse</groupId>
+  <groupId>io.github.kcsurapaneni</groupId>
   <artifactId>pulse-starter</artifactId>
-  <version>0.1.0</version>
+  <version>0.5.0</version>
 </dependency>
 ```
 
@@ -55,25 +48,9 @@ You also need `spring-boot-starter-actuator` (this library declares it `optional
 
 Add `spring-boot-starter-oauth2-client` *only* if you enable the OAuth2 check.
 
-### 2. Authenticate to GitHub Packages
+> Versions **0.1.0–0.4.0** are on GitHub Packages under the old `dev.kc.pulse` groupId. From `0.5.0` onward Pulse is on Maven Central as `io.github.kcsurapaneni:pulse-starter`. Migration: change your groupId and update any direct `import dev.kc.pulse.*` to `import io.github.kcsurapaneni.pulse.*`. See [CHANGELOG `0.5.0`](CHANGELOG.md#050--2026-05-20).
 
-GitHub Packages requires a personal access token even for public packages. Generate one at https://github.com/settings/tokens with the `read:packages` scope (only), then add a `<server>` entry to your `~/.m2/settings.xml`:
-
-```xml
-<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
-  <servers>
-    <server>
-      <id>github-pulse</id>                <!-- must match the <repository><id> above -->
-      <username>YOUR-GITHUB-USERNAME</username>
-      <password>${env.GITHUB_TOKEN}</password>
-    </server>
-  </servers>
-</settings>
-```
-
-Keep the PAT in the `GITHUB_TOKEN` env var (`export GITHUB_TOKEN=...`) rather than hardcoded — easier to rotate, never written to disk. For CI runners, set `GITHUB_TOKEN` as a secret.
-
-### 3. Expose the health endpoint with details
+### 2. Expose the health endpoint with details
 
 Without `show-details`, `/actuator/health` only reports `UP`/`DOWN` and the per-check diagnostics Pulse adds (`latencyMs`, `lastSuccessAt`, `lastFailureAt`, plus check-specific fields) won't surface:
 
