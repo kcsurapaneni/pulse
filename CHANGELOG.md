@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`pulse.oauth2.providers[].on-transient-failure`** controls how transient handshake
+  failures interact with the cached token in `handshake` mode. Default `down` preserves
+  the existing behaviour — transient errors clear the cache and report `DOWN`. Opt-in
+  `stale` returns the still-naturally-valid cached token with `stale: true` and a
+  `staleReason` detail until the token reaches its IdP-reported natural expiry. Transient
+  failures include `IOException` (DNS / TLS / connect / read timeout), HTTP 5xx, and
+  HTTP 429. HTTP 4xx other than 429 (401 / 403 / 400) always clears the cache and
+  reports `DOWN` regardless of this setting — the IdP explicitly rejected the request,
+  almost always credentials are wrong. Non-breaking: existing consumers see no change.
+
 ## [0.6.0] — 2026-05-20
 
 A non-breaking opt-in for the OAuth2 check. Existing consumers see no behavioural

@@ -115,6 +115,22 @@ public class OAuth2Properties {
          */
         private Duration cacheTtl = Duration.ofMinutes(5);
 
+        /**
+         * What to report when a refresh-time handshake fails transiently while a still-natural-life
+         * cached token is on hand. {@link OnTransientFailure#DOWN} (default) preserves the
+         * "is the IdP reachable right now" semantic — transient errors clear the cache and report
+         * {@code DOWN}. {@link OnTransientFailure#STALE} switches the semantic to "do we hold a
+         * usable token" — short outages return {@code UP} with {@code stale: true} and a
+         * {@code staleReason} as long as the cached token hasn't reached its IdP-reported natural
+         * expiry. Only applied in {@link CheckMode#HANDSHAKE}.
+         *
+         * <p>Transient failures include {@link java.io.IOException} (DNS / TLS / connect / read
+         * timeout), HTTP 5xx, and HTTP 429. HTTP 4xx other than 429 (401 / 403 / 400) always
+         * clears the cache and reports {@code DOWN} regardless of this setting — those almost
+         * always mean credentials are wrong, not that the IdP is having a moment.
+         */
+        private OnTransientFailure onTransientFailure = OnTransientFailure.DOWN;
+
         public String getName() {
             return name;
         }
@@ -154,6 +170,33 @@ public class OAuth2Properties {
         public void setCacheTtl(Duration cacheTtl) {
             this.cacheTtl = cacheTtl;
         }
+
+        public OnTransientFailure getOnTransientFailure() {
+            return onTransientFailure;
+        }
+
+        public void setOnTransientFailure(OnTransientFailure onTransientFailure) {
+            this.onTransientFailure = onTransientFailure;
+        }
+    }
+
+    /**
+     * How transient handshake failures interact with the cached token.
+     */
+    public enum OnTransientFailure {
+
+        /**
+         * Default. Transient failures clear the cache and report {@code DOWN} — health answers
+         * "is the IdP reachable right now". Preserves Pulse 0.1–0.6 behaviour.
+         */
+        DOWN,
+
+        /**
+         * Transient failures return the still-naturally-valid cached token with {@code stale: true}
+         * and a {@code staleReason} in details — health answers "do we hold a usable token". Once
+         * the cached token reaches its IdP-reported natural expiry the check goes {@code DOWN}.
+         */
+        STALE
     }
 
     /**

@@ -23,6 +23,21 @@ public final class OAuth2TokenCache {
         }
     }
 
+    /**
+     * Whether the cached token is still within its IdP-reported natural lifetime, regardless of
+     * whether we've already passed the refresh point. Lets the OAuth2 check fall back to a
+     * stale-but-cryptographically-valid token when a refresh attempt hits a transient failure.
+     */
+    public boolean isUsable(Instant now) {
+        synchronized (lock) {
+            if (cachedAt == null) {
+                return false;
+            }
+            Instant naturalExpiry = cachedAt.plusSeconds(expiresInSec);
+            return now.isBefore(naturalExpiry);
+        }
+    }
+
     public void store(Instant fetchedAt, String tokenType, int expiresInSec, Duration cacheTtl) {
         synchronized (lock) {
             this.cachedAt = fetchedAt;

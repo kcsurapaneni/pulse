@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.github.kcsurapaneni.pulse.oauth2.OAuth2Properties.CheckMode;
+import io.github.kcsurapaneni.pulse.oauth2.OAuth2Properties.OnTransientFailure;
 import io.github.kcsurapaneni.pulse.oauth2.OAuth2Properties.Provider;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -322,6 +323,239 @@ class OAuth2CheckTest {
         Health second = check.check();
         assertThat(second.getStatus()).isEqualTo(Status.UP);
         assertThat(acceptedRequests.get()).isEqualTo(1);
+    }
+
+    // ---------- on-transient-failure: stale ----------
+
+    @Test
+    void staleModeReturnsUpWhenIdpThrowsIoException() throws IOException {
+        // Phase 1: handshake succeeds, cache a token with 1h natural lifetime
+        AtomicInteger phase = new AtomicInteger(0);
+        server.createContext("/token", exchange -> {
+            if (phase.get() == 0) {
+                writeResponse(exchange, 200, validTokenBody());
+            }
+            // Phase 1 success only — we'll stop the server entirely to simulate the outage.
+        });
+        server.start();
+
+        AdvanceableClock clock = new AdvanceableClock(Instant.parse("2026-01-01T00:00:00Z"));
+        OAuth2Check check = newCheckWithProvider(staleProvider(),
+                repoWith(registration("test", url("/token"), "client", "secret")), clock);
+
+        Health first = check.check();
+        assertThat(first.getStatus()).isEqualTo(Status.UP);
+        assertThat(first.getDetails()).containsEntry("cached", false);
+
+        // Phase 2: stop the server entirely → IOException on next refresh.
+        server.stop(0);
+        server = null; // avoid double-stop in @AfterEach
+        clock.advance(Duration.ofMinutes(5)); // past refresh point but well before natural expiry
+
+        Health second = check.check();
+
+        assertThat(second.getStatus()).isEqualTo(Status.UP);
+        assertThat(second.getDetails())
+                .containsEntry("stale", true)
+                .containsEntry("cached", true)
+                .containsEntry("tokenType", "Bearer");
+        assertThat((String) second.getDetails().get("staleReason"))
+                .containsAnyOf("Exception", "Error");
+    }
+
+    @Test
+    void staleModeReturnsUpOn503() {
+        AtomicInteger calls = new AtomicInteger();
+        server.createContext("/token", exchange -> {
+            int n = calls.incrementAndGet();
+            if (n == 1) {
+                writeResponse(exchange, 200, validTokenBody());
+            }
+            else {
+                writeResponse(exchange, 503, "{}");
+            }
+        });
+        server.start();
+
+        AdvanceableClock clock = new AdvanceableClock(Instant.parse("2026-01-01T00:00:00Z"));
+        OAuth2Check check = newCheckWithProvider(staleProvider(),
+                repoWith(registration("test", url("/token"), "client", "secret")), clock);
+
+        check.check();
+        clock.advance(Duration.ofMinutes(5));
+        Health stale = check.check();
+
+        assertThat(stale.getStatus()).isEqualTo(Status.UP);
+        assertThat(stale.getDetails())
+                .containsEntry("stale", true)
+                .containsEntry("httpStatus", 503);
+        assertThat(stale.getDetails().get("staleReason")).isNotNull();
+    }
+
+    @Test
+    void staleModeReturnsUpOn429() {
+        AtomicInteger calls = new AtomicInteger();
+        server.createContext("/token", exchange -> {
+            int n = calls.incrementAndGet();
+            if (n == 1) {
+                writeResponse(exchange, 200, validTokenBody());
+            }
+            else {
+                writeResponse(exchange, 429, "{\"error\":\"rate_limited\"}");
+            }
+        });
+        server.start();
+
+        AdvanceableClock clock = new AdvanceableClock(Instant.parse("2026-01-01T00:00:00Z"));
+        OAuth2Check check = newCheckWithProvider(staleProvider(),
+                repoWith(registration("test", url("/token"), "client", "secret")), clock);
+
+        check.check();
+        clock.advance(Duration.ofMinutes(5));
+        Health stale = check.check();
+
+        assertThat(stale.getStatus()).isEqualTo(Status.UP);
+        assertThat(stale.getDetails())
+                .containsEntry("stale", true)
+                .containsEntry("httpStatus", 429);
+        assertThat((String) stale.getDetails().get("staleReason")).contains("rate_limited");
+    }
+
+    @Test
+    void staleModeStillReportsDownOn401() {
+        // 4xx (not 429) means credentials are bad — we must NOT keep returning a stale token,
+        // otherwise rotated/revoked credentials would silently keep reporting UP.
+        AtomicInteger calls = new AtomicInteger();
+        server.createContext("/token", exchange -> {
+            int n = calls.incrementAndGet();
+            if (n == 1) {
+                writeResponse(exchange, 200, validTokenBody());
+            }
+            else {
+                writeResponse(exchange, 401, "{\"error\":\"invalid_client\"}");
+            }
+        });
+        server.start();
+
+        AdvanceableClock clock = new AdvanceableClock(Instant.parse("2026-01-01T00:00:00Z"));
+        OAuth2Check check = newCheckWithProvider(staleProvider(),
+                repoWith(registration("test", url("/token"), "client", "secret")), clock);
+
+        check.check();
+        clock.advance(Duration.ofMinutes(5));
+        Health down = check.check();
+
+        assertThat(down.getStatus()).isEqualTo(Status.DOWN);
+        assertThat(down.getDetails()).doesNotContainKey("stale");
+        assertThat(down.getDetails()).containsEntry("httpStatus", 401);
+    }
+
+    @Test
+    void staleModeFallsBackToDownWhenCacheEmpty() {
+        // No previous successful handshake → no token to be stale about.
+        server.createContext("/token", respond(503, "{}"));
+        server.start();
+
+        Health down = newCheckWithProvider(staleProvider(),
+                repoWith(registration("test", url("/token"), "client", "secret")),
+                Clock.systemUTC()).check();
+
+        assertThat(down.getStatus()).isEqualTo(Status.DOWN);
+        assertThat(down.getDetails()).doesNotContainKey("stale");
+    }
+
+    @Test
+    void staleModeReturnsDownAfterTokenPastNaturalExpiry() {
+        AtomicInteger calls = new AtomicInteger();
+        server.createContext("/token", exchange -> {
+            int n = calls.incrementAndGet();
+            if (n == 1) {
+                writeResponse(exchange, 200, validTokenBody());
+            }
+            else {
+                writeResponse(exchange, 503, "{}");
+            }
+        });
+        server.start();
+
+        AdvanceableClock clock = new AdvanceableClock(Instant.parse("2026-01-01T00:00:00Z"));
+        OAuth2Check check = newCheckWithProvider(staleProvider(),
+                repoWith(registration("test", url("/token"), "client", "secret")), clock);
+
+        check.check();
+        // Token reports expires_in=3600 (validTokenBody) → advance past it.
+        clock.advance(Duration.ofHours(2));
+
+        Health expired = check.check();
+        assertThat(expired.getStatus()).isEqualTo(Status.DOWN);
+        assertThat(expired.getDetails()).doesNotContainKey("stale");
+    }
+
+    @Test
+    void defaultDownModePreserved() {
+        // Same scenario as staleModeReturnsUpOn503 but using the default (DOWN). Catches any
+        // accidental behaviour change for the existing-consumer path.
+        AtomicInteger calls = new AtomicInteger();
+        server.createContext("/token", exchange -> {
+            int n = calls.incrementAndGet();
+            if (n == 1) {
+                writeResponse(exchange, 200, validTokenBody());
+            }
+            else {
+                writeResponse(exchange, 503, "{}");
+            }
+        });
+        server.start();
+
+        AdvanceableClock clock = new AdvanceableClock(Instant.parse("2026-01-01T00:00:00Z"));
+        OAuth2Check check = newCheck(
+                repoWith(registration("test", url("/token"), "client", "secret")), clock);
+
+        check.check();
+        clock.advance(Duration.ofMinutes(5));
+        Health down = check.check();
+
+        assertThat(down.getStatus()).isEqualTo(Status.DOWN);
+        assertThat(down.getDetails()).doesNotContainKey("stale");
+        assertThat(down.getDetails()).containsEntry("httpStatus", 503);
+    }
+
+    @Test
+    void recoveringIdpDropsStaleFlagOnNextProbe() {
+        AtomicInteger calls = new AtomicInteger();
+        server.createContext("/token", exchange -> {
+            int n = calls.incrementAndGet();
+            if (n == 2) {
+                writeResponse(exchange, 503, "{}");
+            }
+            else {
+                writeResponse(exchange, 200, validTokenBody());
+            }
+        });
+        server.start();
+
+        AdvanceableClock clock = new AdvanceableClock(Instant.parse("2026-01-01T00:00:00Z"));
+        OAuth2Check check = newCheckWithProvider(staleProvider(),
+                repoWith(registration("test", url("/token"), "client", "secret")), clock);
+
+        check.check();                       // call #1: 200 → fresh UP
+        clock.advance(Duration.ofMinutes(5));
+        Health stale = check.check();        // call #2: 503 → stale UP
+        clock.advance(Duration.ofSeconds(1));
+        Health recovered = check.check();    // call #3: 200 → fresh UP again
+
+        assertThat(stale.getDetails()).containsEntry("stale", true);
+        assertThat(recovered.getStatus()).isEqualTo(Status.UP);
+        assertThat(recovered.getDetails()).doesNotContainKey("stale");
+        assertThat(recovered.getDetails()).containsEntry("cached", false);
+    }
+
+    private Provider staleProvider() {
+        Provider p = new Provider();
+        p.setName("test");
+        p.setRegistrationId("test");
+        p.setOnTransientFailure(OnTransientFailure.STALE);
+        return p;
     }
 
     // ---------- REACHABLE mode ----------

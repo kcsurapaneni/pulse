@@ -246,6 +246,28 @@ The second path is the recommended one — set `spring.security.oauth2.client.pr
 
 A 2xx response is `UP`; 5xx and 4xx (including 404 — with a hint pointing at the discovery URL) are `DOWN`. Connection errors and timeouts are `DOWN`.
 
+### Cache resilience for transient failures (`on-transient-failure`)
+
+In `handshake` mode, a transient blip between the app and the IdP (DNS, TLS, a 503, a 429) currently flips the check `DOWN` even though Pulse may still hold a perfectly valid unexpired token from a successful handshake moments earlier. For deployments where K8s readiness routing on that signal would cause more churn than the actual outage justifies, opt into `on-transient-failure: stale`:
+
+```yaml
+pulse:
+  oauth2:
+    providers:
+      - name: okta
+        registration-id: okta
+        on-transient-failure: stale       # default is `down`
+```
+
+With `stale`:
+
+- IOException / 5xx / 429 while the cached token is **still within its IdP-reported natural expiry** → `UP` with `stale: true` and a `staleReason` (e.g. `"httpStatus 503"` or `"ConnectException: ..."`).
+- IOException / 5xx / 429 while the cached token has **passed** its natural expiry → `DOWN` (clears the cache).
+- **4xx other than 429** (401 / 403 / 400) → always `DOWN` (clears the cache). The IdP explicitly rejected the request — almost always credentials are wrong, and reporting `UP` here would mask real breakage.
+- A successful subsequent handshake clears the `stale` flag transparently.
+
+Pick `stale` when the question you want `/actuator/health` to answer is "do we currently hold a usable token". Stick with the default `down` when the question is "is the IdP reachable right now" (e.g. you have other monitoring that catches credential breakage and want fast failover signal).
+
 ### Configuration reference
 
 | Property                                          | Default     | Description                                              |
@@ -257,6 +279,7 @@ A 2xx response is `UP`; 5xx and 4xx (including 404 — with a hint pointing at t
 | `pulse.oauth2.providers[].mode`           | `handshake` | `handshake` (real token call) or `reachable` (discovery doc GET) |
 | `pulse.oauth2.providers[].discovery-uri`  | —           | Explicit OIDC discovery URL. `reachable` mode only; overrides issuer derivation |
 | `pulse.oauth2.providers[].cache-ttl`      | `5m`        | Upper bound on token reuse, always capped by token expiry. `handshake` mode only |
+| `pulse.oauth2.providers[].on-transient-failure` | `down` | `down` (transient errors clear cache + DOWN) or `stale` (return cached token with `stale: true` until natural expiry). `handshake` mode only |
 
 The check honours the registration's `client-authentication-method`: `client_secret_basic` sends creds in the `Authorization: Basic …` header; `client_secret_post` (default) sends them in the form body. JWT-based methods aren't supported. (Authentication method only applies in `handshake` mode.)
 
@@ -407,8 +430,9 @@ The nested `details` fields require `management.endpoint.health.show-details: al
 | Mule endpoint returns wrong status                     | `DOWN` | `details.httpStatus`                       |
 | Mule endpoint unreachable / times out                  | `DOWN` | `details.error`                            |
 | OAuth2 `registration-id` not in `ClientRegistrationRepository` | `DOWN` | `details.error`                  |
-| OAuth2 handshake mode — token endpoint returns 4xx     | `DOWN` | `details.httpStatus`, `details.error`      |
-| OAuth2 handshake mode — token endpoint unreachable     | `DOWN` | `details.error`                            |
+| OAuth2 handshake mode — token endpoint returns 4xx (not 429) | `DOWN` | `details.httpStatus`, `details.error`      |
+| OAuth2 handshake mode — token endpoint unreachable     | `DOWN` (or `UP` with `stale: true` when `on-transient-failure: stale` and token still naturally valid) | `details.error` / `details.staleReason` |
+| OAuth2 handshake mode — 5xx or 429                     | `DOWN` (or `UP` with `stale: true` when `on-transient-failure: stale` and token still naturally valid) | `details.httpStatus`, `details.staleReason` |
 | OAuth2 handshake mode — success response is unparseable | `DOWN` | `details.error`                            |
 | OAuth2 reachable mode — discovery doc returns non-2xx  | `DOWN` | `details.httpStatus`, `details.error`      |
 | OAuth2 reachable mode — neither `discovery-uri` nor `issuer-uri` configured | `DOWN` | `details.error` |

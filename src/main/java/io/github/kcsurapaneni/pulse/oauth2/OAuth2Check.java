@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.github.kcsurapaneni.pulse.core.PulseCheck;
 import io.github.kcsurapaneni.pulse.oauth2.OAuth2Properties.CheckMode;
+import io.github.kcsurapaneni.pulse.oauth2.OAuth2Properties.OnTransientFailure;
 import io.github.kcsurapaneni.pulse.oauth2.OAuth2Properties.Provider;
 
 import org.springframework.boot.health.contributor.Health;
@@ -199,23 +200,53 @@ public class OAuth2Check implements PulseCheck {
             if (response.statusCode() >= 200 && response.statusCode() < 300) {
                 return processSuccess(b, response, now);
             }
+            String error = "client_credentials handshake failed: " + extractError(response.body());
+            if (isTransientStatus(response.statusCode())) {
+                return handleTransientFailure(b, now, error);
+            }
             cache.clear();
-            return b.down()
-                    .withDetail("error",
-                            "client_credentials handshake failed: " + extractError(response.body()))
-                    .build();
+            return b.down().withDetail("error", error).build();
         }
         catch (IOException ex) {
-            cache.clear();
-            return b.down()
-                    .withDetail("error", ex.getClass().getSimpleName() + ": " + ex.getMessage())
-                    .build();
+            return handleTransientFailure(b, now,
+                    ex.getClass().getSimpleName() + ": " + ex.getMessage());
         }
         catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            cache.clear();
-            return b.down().withDetail("error", "interrupted").build();
+            return handleTransientFailure(b, now, "interrupted");
         }
+    }
+
+    /**
+     * 5xx and 429 are treated as transient. 4xx other than 429 means the IdP actively rejected the
+     * request (wrong creds, bad scope, disabled client) — those always clear the cache.
+     */
+    private static boolean isTransientStatus(int statusCode) {
+        return statusCode >= 500 || statusCode == 429;
+    }
+
+    /**
+     * Common path for IOException, InterruptedException, 5xx, and 429. If the provider opted into
+     * stale-but-valid behaviour and we still hold a cached token within its natural lifetime,
+     * return that token with {@code stale: true}. Otherwise clear the cache and report DOWN —
+     * matches the pre-0.7 behaviour.
+     */
+    private Health handleTransientFailure(Health.Builder b, Instant now, String reason) {
+        OnTransientFailure mode = config.getOnTransientFailure() != null
+                ? config.getOnTransientFailure()
+                : OnTransientFailure.DOWN;
+        if (mode == OnTransientFailure.STALE && cache.isUsable(now)) {
+            OAuth2TokenCache.Snapshot snap = cache.snapshot();
+            return b.up()
+                    .withDetail("cached", true)
+                    .withDetail("stale", true)
+                    .withDetail("staleReason", reason)
+                    .withDetail("tokenType", snap.tokenType())
+                    .withDetail("expiresInSec", remainingSeconds(snap, now))
+                    .build();
+        }
+        cache.clear();
+        return b.down().withDetail("error", reason).build();
     }
 
     private Health processSuccess(Health.Builder b, HttpResponse<String> response, Instant now) {
