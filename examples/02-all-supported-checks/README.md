@@ -7,14 +7,14 @@ OAuth2 is intentionally skipped here — it needs a real IdP (or a Testcontainer
 ## What it shows
 
 - Configuring the mount-point check against two real paths (`/tmp`, `${user.home}`)
-- Configuring the Mule HTTP check against `httpbin.org` — one entry deliberately mismatched so you can see a `DOWN` result and the failure details
+- Configuring the Mule HTTP check against two endpoints — one returns 200, one returns 503, both served by the example app's own `MockStatusController` so the demo is self-contained. One entry is deliberately mismatched (`expected-status: 200` against a `503` URL) so you can see a `DOWN` result and the failure details
 - Splitting K8s probe groups: mount → `[liveness, readiness]`, mule → `[readiness]` only
 - The `pulse.check-timeout` outer deadline applied uniformly across both modules
 
 ## Prerequisites
 
 - Java 21+, Maven 3.9+
-- Internet access — Maven resolves `pulse-starter` from Maven Central, and the Mule entries hit `httpbin.org`
+- Internet access only at first build (Maven resolves `pulse-starter` from Maven Central). The example itself needs no external network — both Mule URLs point at the in-process `MockStatusController`.
 
 ## Run
 
@@ -47,15 +47,15 @@ Expected (truncated):
     "mule": {
       "status": "DOWN",
       "components": {
-        "httpbin-ok":    { "status": "UP",   "details": { "httpStatus": 200, ... }},
-        "httpbin-flaky": { "status": "DOWN", "details": { "httpStatus": 503, "error": "unexpected status code" }}
+        "local-ok":    { "status": "UP",   "details": { "httpStatus": 200, ... }},
+        "local-flaky": { "status": "DOWN", "details": { "httpStatus": 503, "error": "unexpected status code" }}
       }
     }
   }
 }
 ```
 
-Overall flips to `DOWN` because `httpbin-flaky` is intentionally configured to expect 200 from a URL that returns 503.
+Overall flips to `DOWN` because `local-flaky` is intentionally configured to expect 200 from a URL that returns 503.
 
 ### 2. Liveness — should remain `UP`
 

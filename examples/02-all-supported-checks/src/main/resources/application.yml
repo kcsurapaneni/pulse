@@ -34,11 +34,13 @@ pulse:
     probes: [readiness]              # downstream HTTP outage should only drop the pod
                                      # from the load balancer, not restart it.
     services:
-      - name: httpbin-ok
-        url: https://httpbin.org/status/200
+      # Both URLs point at this app's own MockStatusController so the example needs no
+      # external network. Change to your real HTTP health endpoints in a deployment.
+      - name: local-ok
+        url: http://localhost:8080/mock/status/200
         expected-status: 200
-      - name: httpbin-flaky
-        url: https://httpbin.org/status/503
+      - name: local-flaky
+        url: http://localhost:8080/mock/status/503
         expected-status: 200         # mismatched: example shows how DOWN looks
 
 # --- Optional: wire Pulse's `pulse.check` Observation into your observability stack ---
@@ -65,8 +67,8 @@ pulse:
 # 3. Scrape /actuator/prometheus. Pulse's checks surface as:
 #      pulse_check_seconds_count{kind="mount", name="tmp",         status="UP"}   142
 #      pulse_check_seconds_sum  {kind="mount", name="tmp",         status="UP"}   0.118
-#      pulse_check_seconds_count{kind="mule",  name="httpbin-ok",  status="UP"}   142
-#      pulse_check_seconds_count{kind="mule",  name="httpbin-flaky",status="DOWN"} 142
+#      pulse_check_seconds_count{kind="mule",  name="local-ok",    status="UP"}   142
+#      pulse_check_seconds_count{kind="mule",  name="local-flaky", status="DOWN"} 142
 #
 # ===== OpenTelemetry / OTLP =====
 #

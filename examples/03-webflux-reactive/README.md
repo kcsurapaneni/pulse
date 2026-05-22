@@ -1,10 +1,10 @@
 # Example 03 — WebFlux + `ReactivePulseCheck`
 
-A non-blocking Spring Boot WebFlux app with one `ReactivePulseCheck` bean. The check pings `httpbin.org` via `WebClient`, runs fully on the reactive scheduler, and surfaces under `/actuator/health/pulseReactive/httpbin`.
+A non-blocking Spring Boot WebFlux app with one `ReactivePulseCheck` bean. The check pings a local `MockStatusController` via `WebClient`, runs fully on the reactive scheduler, and surfaces under `/actuator/health/pulseReactive/downstream`. In a real deployment you'd point the `downstreamClient` bean at whatever HTTP service you actually want to verify.
 
 ## What it shows
 
-- How to implement the `ReactivePulseCheck` SPI returning `Mono<Health>` (see `HttpbinReactiveCheck.java`)
+- How to implement the `ReactivePulseCheck` SPI returning `Mono<Health>` (see `DownstreamReactiveCheck.java`)
 - That the `pulseReactive` composite is auto-registered when `reactor-core` is on the classpath — no extra config needed
 - Same decoration (`latencyMs`, `lastSuccessAt`, `lastFailureAt`) and same outer deadline (`pulse.check-timeout`, via `Mono.timeout`) as the blocking SPI
 - That the reactive composite gets its own K8s probe-routing property (`pulse.reactive.probes`), independent from `pulse.custom.probes`
@@ -12,7 +12,7 @@ A non-blocking Spring Boot WebFlux app with one `ReactivePulseCheck` bean. The c
 ## Prerequisites
 
 - Java 21+, Maven 3.9+
-- Internet access — Maven resolves `pulse-starter` from Maven Central, and the example check hits `httpbin.org`
+- Internet access only at first build (Maven resolves `pulse-starter` from Maven Central). The example itself needs no external network — the reactive check targets an in-process `MockStatusController`.
 
 ## Run
 
@@ -36,12 +36,12 @@ Expected (truncated):
     "pulseReactive": {
       "status": "UP",
       "components": {
-        "httpbin": {
+        "downstream": {
           "status": "UP",
           "details": {
             "httpStatus": 200,
             "latencyMs": 142,
-            "lastSuccessAt": "2026-05-20T..."
+            "lastSuccessAt": "2026-05-21T..."
           }
         }
       }
@@ -53,21 +53,21 @@ Expected (truncated):
 
 ## Try a failure
 
-Edit `HttpbinReactiveCheck.java` to hit `/status/500` instead of `/status/200`:
+Edit `DownstreamReactiveCheck.java` to hit `/mock/status/500` instead of `/mock/status/200`:
 
 ```java
-.uri("/status/500")
+.uri("/mock/status/500")
 ```
 
 The `retrieve().toBodilessEntity()` chain converts non-2xx into an error, which the `onErrorResume` branch maps to `Health.down()`:
 
 ```json
-"httpbin": {
+"downstream": {
   "status": "DOWN",
   "details": {
     "error": "WebClientResponseException$InternalServerError: ...",
     "latencyMs": 138,
-    "lastFailureAt": "2026-05-20T..."
+    "lastFailureAt": "2026-05-21T..."
   }
 }
 ```

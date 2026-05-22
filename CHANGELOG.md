@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (examples only)
+- **Examples 02 and 03 are now self-contained.** Previously
+  `examples/02-all-supported-checks` pointed two Mule check entries at
+  `https://httpbin.org/status/200` and `.../503`, and
+  `examples/03-webflux-reactive` shipped a `HttpbinReactiveCheck` hitting the same
+  third party via `WebClient`. Both have been replaced with an in-process
+  `MockStatusController` (`GET /mock/status/{code}` returning the requested
+  status). The example apps now run with zero external network — relevant on
+  air-gapped networks and removes a flakiness source from `examples-ci`. The
+  reactive check class was renamed `HttpbinReactiveCheck` →
+  `DownstreamReactiveCheck` and its bean from `httpbinClient` →
+  `downstreamClient`; component keys under `/actuator/health` move from
+  `httpbin-ok` / `httpbin-flaky` / `httpbin` to `local-ok` / `local-flaky` /
+  `downstream`. **Library API itself is unchanged.**
+
 ## [0.9.0] — 2026-05-21
 
 Internal refactor with better error messages and one small new transitive dep. No

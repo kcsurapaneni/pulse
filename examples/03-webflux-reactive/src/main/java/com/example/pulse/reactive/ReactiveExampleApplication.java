@@ -16,7 +16,10 @@ public class ReactiveExampleApplication {
     }
 
     @Bean
-    WebClient httpbinClient(WebClient.Builder builder) {
-        return builder.baseUrl("https://httpbin.org").build();
+    WebClient downstreamClient(WebClient.Builder builder) {
+        // In a real deployment, point this at the actual service you want to verify. Here it
+        // targets the example app's own MockStatusController so the demo runs without any
+        // external network dependency.
+        return builder.baseUrl("http://localhost:8080").build();
     }
 }

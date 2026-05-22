@@ -9,32 +9,36 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 /**
- * Pings {@code httpbin.org/status/200} on the reactive scheduler via {@link WebClient}.
- * Returns a {@link Mono} that the {@code pulseReactive} composite consumes without ever
- * blocking a thread.
+ * Pings the example app's own {@code MockStatusController} via {@link WebClient}, fully on the
+ * reactive scheduler. Returns a {@link Mono} that the {@code pulseReactive} composite consumes
+ * without ever blocking a thread.
  *
- * <p>Surfaces under {@code /actuator/health/pulseReactive/httpbin}.
+ * <p>In a real deployment you'd point the {@code downstreamClient} bean at whatever service
+ * you actually want to verify (a payments API, a feature-flag service, etc.). Hitting an
+ * in-process mock here keeps the example self-contained — no external network needed.
+ *
+ * <p>Surfaces under {@code /actuator/health/pulseReactive/downstream}.
  *
  * @author Krishna Chaitanya Surapaneni
  */
 @Component
-class HttpbinReactiveCheck implements ReactivePulseCheck {
+class DownstreamReactiveCheck implements ReactivePulseCheck {
 
-    private final WebClient httpbinClient;
+    private final WebClient downstreamClient;
 
-    HttpbinReactiveCheck(WebClient httpbinClient) {
-        this.httpbinClient = httpbinClient;
+    DownstreamReactiveCheck(WebClient downstreamClient) {
+        this.downstreamClient = downstreamClient;
     }
 
     @Override
     public String name() {
-        return "httpbin";
+        return "downstream";
     }
 
     @Override
     public Mono<Health> check() {
-        return httpbinClient.get()
-                .uri("/status/200")
+        return downstreamClient.get()
+                .uri("/mock/status/200")
                 .retrieve()
                 .toBodilessEntity()
                 .map(response -> Health.up()
