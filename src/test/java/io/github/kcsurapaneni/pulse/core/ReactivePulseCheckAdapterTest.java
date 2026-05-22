@@ -133,6 +133,37 @@ class ReactivePulseCheckAdapterTest {
     }
 
     @Test
+    void perCheckCheckTimeoutOverridesGlobal() {
+        ReactivePulseCheck slow = new ReactivePulseCheck() {
+            @Override
+            public String name() {
+                return "slow";
+            }
+
+            @Override
+            public Mono<Health> check() {
+                return Mono.delay(Duration.ofSeconds(1)).thenReturn(Health.up().build());
+            }
+
+            @Override
+            public Duration checkTimeout() {
+                return Duration.ofMillis(50);
+            }
+        };
+        ReactivePulseCheckAdapter adapter = new ReactivePulseCheckAdapter(slow, Clock.systemUTC(),
+                Duration.ofSeconds(5));
+
+        StepVerifier.create(adapter.health())
+                .assertNext(h -> {
+                    assertThat(h.getStatus()).isEqualTo(Status.DOWN);
+                    assertThat((String) h.getDetails().get("error"))
+                            .startsWith("check timed out after");
+                    assertThat((String) h.getDetails().get("timeout")).isEqualTo("PT0.05S");
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void recoversFromPriorTimeoutOnNextProbe() {
         AtomicInteger calls = new AtomicInteger();
         ReactivePulseCheck slowOnce = new ReactivePulseCheck() {

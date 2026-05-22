@@ -1,5 +1,8 @@
 package io.github.kcsurapaneni.pulse.core;
 
+import java.time.Duration;
+import java.util.Set;
+
 import org.springframework.boot.health.contributor.Health;
 
 /**
@@ -27,4 +30,33 @@ public interface PulseCheck {
 
     @SuppressWarnings("java:S112") // intentional: matches AbstractHealthIndicator.doHealthCheck signature
     Health check() throws Exception;
+
+    /**
+     * Per-check outer deadline override. Return non-null to cap {@code check()} wall-clock time
+     * at a value different from the global {@code pulse.check-timeout}. The adapter samples this
+     * once at construction.
+     *
+     * <p>Default {@code null}: inherit the global timeout. Useful when one check legitimately
+     * needs longer than the rest (a paginated downstream query, a hostile-network probe) — the
+     * default lets the consumer raise it for just that bean without slackening the global cap
+     * for every other check.
+     */
+    default Duration checkTimeout() {
+        return null;
+    }
+
+    /**
+     * Per-check Kubernetes probe-group routing. Return a non-empty set to <strong>override</strong>
+     * (not augment) the module-level {@code pulse.custom.probes} for this specific bean: the
+     * contributor will appear in exactly the named probe groups (typically {@code liveness} and/or
+     * {@code readiness}) regardless of the module-level setting.
+     *
+     * <p>Default empty set: inherit {@code pulse.custom.probes}. Useful when one SPI check is
+     * pod-fatal (liveness) and another isn't (readiness only) and you'd otherwise have to roll
+     * your own composite. Override semantics keep the mental model simple — what you return is
+     * exactly where the check lands.
+     */
+    default Set<String> probes() {
+        return Set.of();
+    }
 }

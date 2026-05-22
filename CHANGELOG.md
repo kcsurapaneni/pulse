@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Per-check `checkTimeout()` on the SPI.** New default method on `PulseCheck` and
+  `ReactivePulseCheck`:
+  ```java
+  default Duration checkTimeout() { return null; }
+  ```
+  Return non-null to cap one specific check's wall-clock time at a value different from the
+  global `pulse.check-timeout`. Useful when one check legitimately needs longer than the rest
+  (a paginated downstream query, a hostile-network probe) without slackening the global cap for
+  every other check. The adapter samples the value once at construction.
+- **Per-check `probes()` on the SPI.** New default method on `PulseCheck` and
+  `ReactivePulseCheck`:
+  ```java
+  default Set<String> probes() { return Set.of(); }
+  ```
+  Return a non-empty set to **override** (not augment) the module-level `pulse.custom.probes`
+  (or `pulse.reactive.probes`) for this specific bean — the contributor will appear in exactly
+  the named K8s probe groups (e.g. `{"liveness"}` or `{"liveness", "readiness"}`) regardless of
+  the module-level setting. Default empty set inherits. Lets consumers mix one pod-fatal SPI
+  check (liveness) with non-pod-fatal ones (readiness only) without rolling their own composite.
+  Implemented as a new `PulseSpiHealthGroupsPostProcessor` bean that wraps Spring Boot's
+  `HealthEndpointGroups` at startup. No-op when no SPI bean has a non-empty `probes()`.
+
 ### Changed (examples only)
 - **Examples 02 and 03 are now self-contained.** Previously
   `examples/02-all-supported-checks` pointed two Mule check entries at

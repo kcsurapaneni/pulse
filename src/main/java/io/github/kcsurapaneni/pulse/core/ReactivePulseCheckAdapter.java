@@ -43,7 +43,10 @@ public class ReactivePulseCheckAdapter extends AbstractReactiveHealthIndicator {
             String kind, ObservationRegistry observationRegistry) {
         super("Reactive health check '" + check.name() + "' failed");
         this.check = check;
-        this.timeout = timeout;
+        // Per-check override (ReactivePulseCheck#checkTimeout) wins over the passed-in global
+        // timeout when non-null. Sampled once at construction since the SPI default is constant.
+        Duration override = check.checkTimeout();
+        this.timeout = override != null ? override : timeout;
         this.telemetry = new PulseCheckTelemetry(check.name(), kind, clock, observationRegistry);
     }
 

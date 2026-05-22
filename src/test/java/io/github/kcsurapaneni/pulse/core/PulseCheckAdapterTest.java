@@ -185,6 +185,41 @@ class PulseCheckAdapterTest {
     }
 
     @Test
+    void perCheckCheckTimeoutOverridesGlobal() {
+        // SPI bean asks for a 50ms timeout; the global ceiling we pass in is 5s. The check
+        // sleeps long enough to exceed the per-check cap but well inside the global one — if the
+        // override is honoured, the adapter reports DOWN-timeout; if not, it'd come back UP.
+        PulseCheck slow = new PulseCheck() {
+            @Override
+            public String name() {
+                return "slow";
+            }
+
+            @Override
+            public Health check() throws Exception {
+                Thread.sleep(1_000);
+                return Health.up().build();
+            }
+
+            @Override
+            public java.time.Duration checkTimeout() {
+                return Duration.ofMillis(50);
+            }
+        };
+        PulseCheckAdapter adapter = new PulseCheckAdapter(slow, Clock.systemUTC(),
+                Duration.ofSeconds(5));
+
+        long start = System.currentTimeMillis();
+        Health result = adapter.health();
+        long elapsed = System.currentTimeMillis() - start;
+
+        assertThat(elapsed).as("per-check override must beat global").isLessThan(800L);
+        assertThat(result.getStatus()).isEqualTo(Status.DOWN);
+        assertThat((String) result.getDetails().get("error")).startsWith("check timed out after");
+        assertThat((String) result.getDetails().get("timeout")).isEqualTo("PT0.05S");
+    }
+
+    @Test
     void observationRecordsErrorOnException() {
         TestObservationRegistry registry = TestObservationRegistry.create();
         PulseCheck boom = new PulseCheck() {

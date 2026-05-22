@@ -380,6 +380,19 @@ Each `PulseCheck` is wrapped in an adapter that automatically adds:
 
 You don't need to thread these through yourself.
 
+### Per-check overrides
+
+Two optional default methods on the SPI override the module-level defaults for one specific bean:
+
+```java
+@Override public Duration  checkTimeout() { return Duration.ofSeconds(15); } // per-check timeout
+@Override public Set<String> probes()    { return Set.of("liveness"); }      // per-check K8s probe routing
+```
+
+`checkTimeout()` — return non-null to cap this specific check's wall-clock time at a value different from the global `pulse.check-timeout`. Default `null` inherits the global. Useful when one check legitimately needs longer (a paginated downstream query) without slackening the cap for every other check.
+
+`probes()` — return a non-empty set to **override** (not augment) the module-level `pulse.custom.probes` for this bean. The contributor appears in exactly the named K8s probe groups regardless of the module-level setting. Default empty set inherits. Lets one pod-fatal SPI check (liveness) coexist with non-pod-fatal ones (readiness only) without rolling your own composite.
+
 ## Reactive checks (WebFlux)
 
 WebFlux apps can run consumer-defined checks fully on the reactive scheduler — no `Schedulers.boundedElastic()` round-trip. Implement `ReactivePulseCheck` instead of `PulseCheck`; the library auto-discovers your bean and surfaces it under `pulseReactive.<name>`. Activates only when `reactor-core` is on the classpath, so non-WebFlux apps pay nothing.
@@ -411,6 +424,8 @@ pulse:
   reactive:
     probes: [readiness]   # default
 ```
+
+The same `checkTimeout()` / `probes()` per-bean overrides documented under [Custom checks (SPI)](#custom-checks-spi) apply to `ReactivePulseCheck` too — same signatures, same semantics, sampled once at adapter construction.
 
 The built-in `mount` / `mule` / `oauth2` contributors stay blocking. In a WebFlux app, Spring Boot wraps them onto `Schedulers.boundedElastic()` automatically — they still work, they just consume a worker thread per probe. Reactive variants for those built-ins are not on the current roadmap.
 

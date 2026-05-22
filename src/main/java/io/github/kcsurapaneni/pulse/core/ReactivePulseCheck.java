@@ -1,5 +1,8 @@
 package io.github.kcsurapaneni.pulse.core;
 
+import java.time.Duration;
+import java.util.Set;
+
 import org.springframework.boot.health.contributor.Health;
 
 import reactor.core.publisher.Mono;
@@ -32,4 +35,27 @@ public interface ReactivePulseCheck {
     String name();
 
     Mono<Health> check();
+
+    /**
+     * Per-check outer deadline override. Return non-null to apply a different
+     * {@link Mono#timeout(Duration)} than the global {@code pulse.check-timeout}. The adapter
+     * samples this once at construction.
+     *
+     * <p>Default {@code null}: inherit the global timeout. Mirrors {@link PulseCheck#checkTimeout()}.
+     */
+    default Duration checkTimeout() {
+        return null;
+    }
+
+    /**
+     * Per-check Kubernetes probe-group routing. Return a non-empty set to <strong>override</strong>
+     * (not augment) the module-level {@code pulse.reactive.probes} for this specific bean: the
+     * contributor will appear in exactly the named probe groups regardless of the module-level
+     * setting. Mirrors {@link PulseCheck#probes()}.
+     *
+     * <p>Default empty set: inherit {@code pulse.reactive.probes}.
+     */
+    default Set<String> probes() {
+        return Set.of();
+    }
 }

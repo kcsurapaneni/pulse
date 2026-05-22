@@ -46,7 +46,10 @@ public class PulseCheckAdapter extends AbstractHealthIndicator {
             ObservationRegistry observationRegistry) {
         super("Health check '" + check.name() + "' failed");
         this.check = check;
-        this.timeout = timeout;
+        // Per-check override (PulseCheck#checkTimeout) wins over the passed-in global timeout
+        // when non-null. Sampled once at construction since the SPI default is constant per-bean.
+        Duration override = check.checkTimeout();
+        this.timeout = override != null ? override : timeout;
         this.telemetry = new PulseCheckTelemetry(check.name(), kind, clock, observationRegistry);
     }
 
