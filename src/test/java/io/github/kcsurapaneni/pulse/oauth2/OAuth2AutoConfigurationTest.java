@@ -77,6 +77,26 @@ class OAuth2AutoConfigurationTest {
                 .run(ctx -> assertThat(ctx).doesNotHaveBean("oauth2"));
     }
 
+    @Test
+    void failsFastOnBlankName() {
+        runner.withUserConfiguration(StubRegistrationRepository.class)
+                .withPropertyValues(
+                        "pulse.oauth2.enabled=true",
+                        "pulse.oauth2.providers[0].name=",
+                        "pulse.oauth2.providers[0].registration-id=okta")
+                .run(ctx -> assertThat(ctx).hasFailed());
+    }
+
+    @Test
+    void failsFastOnNameContainingSlash() {
+        runner.withUserConfiguration(StubRegistrationRepository.class)
+                .withPropertyValues(
+                        "pulse.oauth2.enabled=true",
+                        "pulse.oauth2.providers[0].name=foo/bar",
+                        "pulse.oauth2.providers[0].registration-id=okta")
+                .run(ctx -> assertThat(ctx).hasFailed());
+    }
+
     @Configuration
     static class StubRegistrationRepository {
 

@@ -9,7 +9,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.github.kcsurapaneni.pulse.core.PulseAutoConfiguration;
 import io.github.kcsurapaneni.pulse.core.PulseCheckAdapter;
-import io.github.kcsurapaneni.pulse.core.PulseNames;
 import io.github.kcsurapaneni.pulse.core.PulseProperties;
 import io.github.kcsurapaneni.pulse.oauth2.OAuth2Properties.Provider;
 import io.micrometer.observation.ObservationRegistry;
@@ -66,7 +65,6 @@ public class OAuth2AutoConfiguration {
                 .getIfAvailable(() -> ObservationRegistry.NOOP);
         Map<String, HealthContributor> map = new LinkedHashMap<>();
         for (Provider provider : props.getProviders()) {
-            validate(provider);
             if (map.containsKey(provider.getName())) {
                 throw new IllegalStateException("Duplicate oauth2 provider name: " + provider.getName());
             }
@@ -77,13 +75,5 @@ public class OAuth2AutoConfiguration {
                             "oauth2", observationRegistry));
         }
         return CompositeHealthContributor.fromMap(map);
-    }
-
-    private static void validate(Provider p) {
-        PulseNames.validate(p.getName(), "OAuth2 provider");
-        if (p.getRegistrationId() == null || p.getRegistrationId().isBlank()) {
-            throw new IllegalStateException("pulse.oauth2.providers[name=" + p.getName()
-                    + "].registration-id must not be blank");
-        }
     }
 }

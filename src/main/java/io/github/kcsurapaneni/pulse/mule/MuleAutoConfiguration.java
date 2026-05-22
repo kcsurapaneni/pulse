@@ -7,7 +7,6 @@ import java.util.Map;
 
 import io.github.kcsurapaneni.pulse.core.PulseAutoConfiguration;
 import io.github.kcsurapaneni.pulse.core.PulseCheckAdapter;
-import io.github.kcsurapaneni.pulse.core.PulseNames;
 import io.github.kcsurapaneni.pulse.core.PulseProperties;
 import io.github.kcsurapaneni.pulse.mule.MuleProperties.Service;
 import io.micrometer.observation.ObservationRegistry;
@@ -56,7 +55,6 @@ public class MuleAutoConfiguration {
                 .getIfAvailable(() -> ObservationRegistry.NOOP);
         Map<String, HealthContributor> map = new LinkedHashMap<>();
         for (Service svc : props.getServices()) {
-            validate(svc);
             if (map.containsKey(svc.getName())) {
                 throw new IllegalStateException("Duplicate mule service name: " + svc.getName());
             }
@@ -65,13 +63,5 @@ public class MuleAutoConfiguration {
                     pulseProperties.getCheckTimeout(), "mule", observationRegistry));
         }
         return CompositeHealthContributor.fromMap(map);
-    }
-
-    private static void validate(Service svc) {
-        PulseNames.validate(svc.getName(), "Mule service");
-        if (svc.getUrl() == null || svc.getUrl().isBlank()) {
-            throw new IllegalStateException(
-                    "pulse.mule.services[name=" + svc.getName() + "].url must not be blank");
-        }
     }
 }

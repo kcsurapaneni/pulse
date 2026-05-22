@@ -3,12 +3,18 @@ package io.github.kcsurapaneni.pulse.mount;
 import java.util.ArrayList;
 import java.util.List;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
 
 /**
  * @author Krishna Chaitanya Surapaneni
  */
 @ConfigurationProperties("pulse.mount")
+@Validated
 public class MountPointProperties {
 
     /**
@@ -28,6 +34,7 @@ public class MountPointProperties {
      * Mount points to check. Each entry becomes a sub-contributor under
      * {@code /actuator/health/mount/<name>}.
      */
+    @Valid
     private List<MountPoint> points = new ArrayList<>();
 
     public boolean isEnabled() {
@@ -63,11 +70,14 @@ public class MountPointProperties {
          * Component key under {@code mount.<name>} in {@code /actuator/health}. Must be non-blank
          * and must not contain {@code '/'}.
          */
+        @NotBlank
+        @Pattern(regexp = "[^/]+", message = "must not contain '/'")
         private String name;
 
         /**
          * Filesystem path to check. UNC paths are supported on Windows.
          */
+        @NotBlank
         private String path;
 
         /**

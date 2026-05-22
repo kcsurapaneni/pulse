@@ -4,12 +4,18 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
 
 /**
  * @author Krishna Chaitanya Surapaneni
  */
 @ConfigurationProperties("pulse.oauth2")
+@Validated
 public class OAuth2Properties {
 
     /**
@@ -36,6 +42,7 @@ public class OAuth2Properties {
      * have to be duplicated into {@code pulse} config. Becomes a sub-contributor under
      * {@code /actuator/health/oauth2/<name>}.
      */
+    @Valid
     private List<Provider> providers = new ArrayList<>();
 
     public boolean isEnabled() {
@@ -79,6 +86,8 @@ public class OAuth2Properties {
          * Component key under {@code oauth2.<name>} in {@code /actuator/health}. Must be non-blank
          * and must not contain {@code '/'}.
          */
+        @NotBlank
+        @Pattern(regexp = "[^/]+", message = "must not contain '/'")
         private String name;
 
         /**
@@ -86,6 +95,7 @@ public class OAuth2Properties {
          * token URI, scope, and auth method are read from that registration on every probe so
          * runtime secret rotation flows through automatically.
          */
+        @NotBlank
         private String registrationId;
 
         /**

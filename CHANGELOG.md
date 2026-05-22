@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Property validation now uses Bean Validation** (`jakarta.validation`) instead of three
+  hand-rolled `validate(...)` methods that lived in the module auto-configs. `pulse.mount`,
+  `pulse.mule`, and `pulse.oauth2` properties classes are now `@Validated`, with `@NotBlank`
+  on required string fields, `@Pattern("[^/]+")` on names (Spring Boot's
+  `CompositeHealthContributor` rejects `/` in component keys), and `@Valid` on nested lists.
+  Misconfigured properties now fail at bind time with the **full property path automatically
+  included in the error message** (e.g. `pulse.mount.points[0].path: must not be blank`)
+  rather than the previously hand-formatted strings. Behaviour is unchanged for valid configs.
+- **Added `spring-boot-starter-validation`** as a non-optional dependency (~500 KB on the
+  classpath, brings Hibernate Validator + `jakarta.validation` API). Required for the
+  `@Validated` bind-time check; consumers who already pull validation via another starter
+  (web, etc.) won't see a new transitive.
+- **Removed `validate(...)` methods** from `MountPointAutoConfiguration`,
+  `MuleAutoConfiguration`, and `OAuth2AutoConfiguration` — replaced entirely by the
+  declarative annotations on the properties classes. `PulseNames.validate` stays in place
+  for the SPI auto-configs (`PulseAutoConfiguration`, `PulseReactiveAutoConfiguration`)
+  where the name comes from a Java method, not a configuration property.
+
 ## [0.8.0] — 2026-05-21
 
 First non-breaking observability landing. Existing consumers see no behavioural change

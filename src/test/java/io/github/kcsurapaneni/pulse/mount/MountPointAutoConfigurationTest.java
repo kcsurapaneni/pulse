@@ -62,4 +62,25 @@ class MountPointAutoConfigurationTest {
                 "pulse.mount.points[0].path=" + tmp)
                 .run(ctx -> assertThat(ctx).hasFailed());
     }
+
+    @Test
+    void failsFastOnNameContainingSlash(@TempDir Path tmp) {
+        // Spring Boot's CompositeHealthContributor rejects '/' in component keys; we surface that
+        // at bind time via @Pattern so the error carries the full property path instead of
+        // surfacing as a confusing runtime ClassCastException somewhere downstream.
+        runner.withPropertyValues(
+                "pulse.mount.enabled=true",
+                "pulse.mount.points[0].name=foo/bar",
+                "pulse.mount.points[0].path=" + tmp)
+                .run(ctx -> assertThat(ctx).hasFailed());
+    }
+
+    @Test
+    void failsFastOnBlankPath() {
+        runner.withPropertyValues(
+                "pulse.mount.enabled=true",
+                "pulse.mount.points[0].name=tmp",
+                "pulse.mount.points[0].path=")
+                .run(ctx -> assertThat(ctx).hasFailed());
+    }
 }

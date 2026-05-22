@@ -58,4 +58,22 @@ class MuleAutoConfigurationTest {
                 "pulse.mule.services[0].url=")
                 .run(ctx -> assertThat(ctx).hasFailed());
     }
+
+    @Test
+    void failsFastOnBlankName() {
+        runner.withPropertyValues(
+                "pulse.mule.enabled=true",
+                "pulse.mule.services[0].name=",
+                "pulse.mule.services[0].url=http://localhost/health")
+                .run(ctx -> assertThat(ctx).hasFailed());
+    }
+
+    @Test
+    void failsFastOnNameContainingSlash() {
+        runner.withPropertyValues(
+                "pulse.mule.enabled=true",
+                "pulse.mule.services[0].name=foo/bar",
+                "pulse.mule.services[0].url=http://localhost/health")
+                .run(ctx -> assertThat(ctx).hasFailed());
+    }
 }

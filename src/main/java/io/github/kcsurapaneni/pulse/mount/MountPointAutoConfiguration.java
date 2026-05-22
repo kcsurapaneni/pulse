@@ -6,7 +6,6 @@ import java.util.Map;
 
 import io.github.kcsurapaneni.pulse.core.PulseAutoConfiguration;
 import io.github.kcsurapaneni.pulse.core.PulseCheckAdapter;
-import io.github.kcsurapaneni.pulse.core.PulseNames;
 import io.github.kcsurapaneni.pulse.core.PulseProperties;
 import io.github.kcsurapaneni.pulse.mount.MountPointProperties.MountPoint;
 import io.micrometer.observation.ObservationRegistry;
@@ -42,7 +41,6 @@ public class MountPointAutoConfiguration {
                 .getIfAvailable(() -> ObservationRegistry.NOOP);
         Map<String, HealthContributor> map = new LinkedHashMap<>();
         for (MountPoint point : props.getPoints()) {
-            validate(point);
             if (map.containsKey(point.getName())) {
                 throw new IllegalStateException("Duplicate mount point name: " + point.getName());
             }
@@ -50,13 +48,5 @@ public class MountPointAutoConfiguration {
                     pulseProperties.getCheckTimeout(), "mount", observationRegistry));
         }
         return CompositeHealthContributor.fromMap(map);
-    }
-
-    private static void validate(MountPoint point) {
-        PulseNames.validate(point.getName(), "Mount point");
-        if (point.getPath() == null || point.getPath().isBlank()) {
-            throw new IllegalStateException(
-                    "pulse.mount.points[name=" + point.getName() + "].path must not be blank");
-        }
     }
 }
