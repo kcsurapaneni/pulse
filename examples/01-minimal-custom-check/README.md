@@ -77,6 +77,15 @@ Restart, re-curl, observe:
 
 The overall `status` flips to `DOWN` because any non-UP child propagates up the composite.
 
+## Per-check overrides (Pulse 0.10.0+)
+
+`InMemoryCacheCheck.java` carries two commented-out blocks demonstrating both per-check SPI overrides:
+
+- **`checkTimeout()`** gives this one bean a longer (or shorter) wall-clock budget than the global `pulse.check-timeout`, without touching the cap for any other check.
+- **`probes()`** overrides the module-level `pulse.custom.probes` for this specific bean — return e.g. `Set.of("liveness")` to make this single check pod-fatal while others stay on readiness only.
+
+Uncomment whichever you want to experiment with and restart. Full trade-off in the top-level README's "Custom checks (SPI) → Per-check overrides" section.
+
 ## See also
 
 - Example 02: all built-in checks (mount, mule) + K8s probe routing
