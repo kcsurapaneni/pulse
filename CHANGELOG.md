@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-05-21
+
+Two non-breaking opt-ins land on the SPI plus a cleanup pass on the examples. Existing
+consumers see no behavioural change; new `default` methods on `PulseCheck` and
+`ReactivePulseCheck` let one specific bean override the global check timeout and the
+module-level K8s probe routing without rolling a hand-written composite.
+
 ### Added
 - **Per-check `checkTimeout()` on the SPI.** New default method on `PulseCheck` and
   `ReactivePulseCheck`:
@@ -320,7 +327,8 @@ with uniform `latencyMs` / `lastSuccessAt` / `lastFailureAt` decoration.
 - 39 unit + auto-configuration slice tests
 - 8 integration tests (Keycloak Testcontainer for OAuth2, WireMock for Mule HTTP)
 
-[Unreleased]: https://github.com/kcsurapaneni/pulse/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/kcsurapaneni/pulse/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/kcsurapaneni/pulse/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/kcsurapaneni/pulse/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/kcsurapaneni/pulse/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/kcsurapaneni/pulse/compare/v0.6.0...v0.7.0
