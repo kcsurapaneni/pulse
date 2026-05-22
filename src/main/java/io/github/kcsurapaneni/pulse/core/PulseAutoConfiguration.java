@@ -4,6 +4,8 @@ import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import io.micrometer.observation.ObservationRegistry;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -33,7 +35,10 @@ public class PulseAutoConfiguration {
     @ConditionalOnMissingBean(name = "pulseCustom")
     @ConditionalOnEnabledHealthIndicator("pulseCustom")
     public CompositeHealthContributor pulseCustom(
-            ObjectProvider<PulseCheck> checks, Clock pulseClock, PulseProperties pulseProperties) {
+            ObjectProvider<PulseCheck> checks, Clock pulseClock, PulseProperties pulseProperties,
+            ObjectProvider<ObservationRegistry> observationRegistryProvider) {
+        ObservationRegistry observationRegistry = observationRegistryProvider
+                .getIfAvailable(() -> ObservationRegistry.NOOP);
         Map<String, HealthContributor> map = new LinkedHashMap<>();
         checks.orderedStream().forEach(check -> {
             String name = check.name();
@@ -45,7 +50,8 @@ public class PulseAutoConfiguration {
                         "PulseCheck bean " + check.getClass().getName() + ": " + ex.getMessage(), ex);
             }
             HealthContributor existing = map.put(name,
-                    new PulseCheckAdapter(check, pulseClock, pulseProperties.getCheckTimeout()));
+                    new PulseCheckAdapter(check, pulseClock, pulseProperties.getCheckTimeout(),
+                            "custom", observationRegistry));
             if (existing != null) {
                 throw new IllegalStateException("Duplicate PulseCheck name: " + name);
             }

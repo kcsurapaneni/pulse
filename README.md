@@ -120,6 +120,66 @@ readinessProbe:
   httpGet:  { path: /actuator/health/readiness, port: 8080 }
 ```
 
+## Observability
+
+Every Pulse check records a **`pulse.check`** Micrometer Observation tagged with two low-cardinality keys:
+
+- **`name`** — the check's component key (`okta`, `s-drive`, `order-svc`, your `PulseCheck.name()`).
+- **`kind`** — one of `mount` / `mule` / `oauth2` / `custom` / `reactive`.
+
+Pulse never couples to a specific exporter. Whatever observability stack you've configured at the application level — OTel / OTLP, Prometheus, Datadog, New Relic, Wavefront, anything Micrometer supports — picks up Pulse's signals automatically. Metrics arrive as timers (duration histograms tagged by `name` + `kind` + `status`), traces as spans named `pulse.check`, and log correlation flows through if you've wired tracing.
+
+If you haven't configured an exporter, the Observation runs against `ObservationRegistry.NOOP` and the cost is effectively zero — no allocation, no recording.
+
+### Example: Prometheus
+
+```xml
+<dependency>
+  <groupId>io.micrometer</groupId>
+  <artifactId>micrometer-registry-prometheus</artifactId>
+</dependency>
+```
+
+Hitting `/actuator/prometheus` then surfaces:
+
+```
+# HELP pulse_check_seconds  
+# TYPE pulse_check_seconds histogram
+pulse_check_seconds_count{kind="oauth2",name="okta",status="UP"} 142
+pulse_check_seconds_sum{kind="oauth2",name="okta",status="UP"} 11.832
+```
+
+### Example: OpenTelemetry / OTLP
+
+```xml
+<dependency>
+  <groupId>io.micrometer</groupId>
+  <artifactId>micrometer-registry-otlp</artifactId>
+</dependency>
+<dependency>
+  <groupId>io.micrometer</groupId>
+  <artifactId>micrometer-tracing-bridge-otel</artifactId>
+</dependency>
+```
+
+Configure the OTLP endpoint via standard `management.otlp.metrics.export.url` / `management.otlp.tracing.endpoint` properties — Pulse's `pulse.check` Observation flows to both signals without further wiring.
+
+### Transition logging
+
+A check flipping **UP → DOWN** (or first non-UP from any prior UP state) emits a `WARN`-level log line with the check name, kind, current status, and the response details:
+
+```
+WARN  i.g.k.pulse.core.PulseCheckTelemetry — Pulse check 'okta' (kind=oauth2) flipped to DOWN — details: {error=client_credentials handshake failed: invalid_client, httpStatus=401, ...}
+```
+
+A **DOWN → UP** recovery emits at `INFO`:
+
+```
+INFO  i.g.k.pulse.core.PulseCheckTelemetry — Pulse check 'okta' (kind=oauth2) recovered to UP
+```
+
+The first probe after startup never logs (no prior state to compare against). Repeated identical statuses don't log — only transitions.
+
 ## Mount-point check
 
 Configure one or more mount points. The check is `DOWN` when any of: path is missing, isn't a directory, isn't readable, or free space falls below a configured threshold.

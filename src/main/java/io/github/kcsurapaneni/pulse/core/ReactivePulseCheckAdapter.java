@@ -4,11 +4,12 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
+
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 
 import org.springframework.boot.health.contributor.AbstractReactiveHealthIndicator;
 import org.springframework.boot.health.contributor.Health;
-import org.springframework.boot.health.contributor.Status;
 
 import reactor.core.publisher.Mono;
 
@@ -16,76 +17,75 @@ import reactor.core.publisher.Mono;
  * Bridges {@link ReactivePulseCheck} SPI instances into Spring Boot's
  * {@link AbstractReactiveHealthIndicator}. Mirrors {@link PulseCheckAdapter}'s decoration
  * (latency / last-success / last-failure timestamps) and outer-deadline semantics, but applies
- * them via Reactor operators so the pipeline never blocks.
+ * them via Reactor operators so the pipeline never blocks. Records a {@code pulse.check}
+ * Micrometer Observation around each invocation; see {@link PulseCheckTelemetry}.
  *
  * @author Krishna Chaitanya Surapaneni
  */
 public class ReactivePulseCheckAdapter extends AbstractReactiveHealthIndicator {
 
-    private final ReactivePulseCheck check;
-    private final Clock clock;
-    private final Duration timeout;
-    private final AtomicReference<Instant> lastSuccess = new AtomicReference<>();
-    private final AtomicReference<Instant> lastFailure = new AtomicReference<>();
+    private static final String DEFAULT_KIND = "reactive";
 
+    private final ReactivePulseCheck check;
+    private final Duration timeout;
+    private final PulseCheckTelemetry telemetry;
+
+    /**
+     * Convenience constructor that tags the check's kind as {@code "reactive"} and uses a NOOP
+     * {@link ObservationRegistry}. Intended for tests + backwards source compatibility; production
+     * call sites should use the full constructor.
+     */
     public ReactivePulseCheckAdapter(ReactivePulseCheck check, Clock clock, Duration timeout) {
+        this(check, clock, timeout, DEFAULT_KIND, ObservationRegistry.NOOP);
+    }
+
+    public ReactivePulseCheckAdapter(ReactivePulseCheck check, Clock clock, Duration timeout,
+            String kind, ObservationRegistry observationRegistry) {
         super("Reactive health check '" + check.name() + "' failed");
         this.check = check;
-        this.clock = clock;
         this.timeout = timeout;
+        this.telemetry = new PulseCheckTelemetry(check.name(), kind, clock, observationRegistry);
     }
 
     @Override
     protected Mono<Health> doHealthCheck(Health.Builder builder) {
         return Mono.defer(() -> {
-            Instant start = clock.instant();
+            Instant start = telemetry.clock().instant();
+            Observation observation = telemetry.startObservation();
             return check.check()
                     .timeout(timeout)
                     .map(result -> buildResult(result, start))
                     .onErrorResume(TimeoutException.class,
-                            ex -> Mono.fromCallable(() -> buildTimeout(start)))
-                    .onErrorResume(ex -> Mono.fromCallable(() -> buildException(ex, start)));
+                            ex -> Mono.fromCallable(() -> buildTimeout(start)).doOnNext(h -> observation.error(ex)))
+                    .onErrorResume(ex -> Mono.fromCallable(() -> buildException(ex, start)).doOnNext(h -> observation.error(ex)))
+                    .doFinally(signal -> observation.stop());
         });
     }
 
     private Health buildResult(Health source, Instant start) {
-        Instant now = clock.instant();
-        if (Status.UP.equals(source.getStatus())) {
-            lastSuccess.set(now);
-        }
-        else {
-            lastFailure.set(now);
-        }
-        return decorate(new Health.Builder().status(source.getStatus()).withDetails(source.getDetails()),
+        Instant now = telemetry.clock().instant();
+        telemetry.recordOutcome(source, now);
+        return telemetry.decorate(
+                new Health.Builder().status(source.getStatus()).withDetails(source.getDetails()),
                 start, now).build();
     }
 
     private Health buildTimeout(Instant start) {
-        Instant now = clock.instant();
-        lastFailure.set(now);
-        return decorate(new Health.Builder().down()
+        Instant now = telemetry.clock().instant();
+        Health.Builder b = new Health.Builder().down()
                 .withDetail("error", "check timed out after " + timeout)
-                .withDetail("timeout", timeout.toString()), start, now).build();
+                .withDetail("timeout", timeout.toString());
+        Health snapshot = b.build();
+        telemetry.recordOutcome(snapshot, now);
+        return telemetry.decorate(b, start, now).build();
     }
 
     private Health buildException(Throwable ex, Instant start) {
-        Instant now = clock.instant();
-        lastFailure.set(now);
-        return decorate(new Health.Builder().down()
-                .withDetail("error", ex.getClass().getSimpleName() + ": " + ex.getMessage()),
-                start, now).build();
-    }
-
-    private Health.Builder decorate(Health.Builder b, Instant start, Instant now) {
-        b.withDetail("latencyMs", Duration.between(start, now).toMillis());
-        Instant ok = lastSuccess.get();
-        if (ok != null) {
-            b.withDetail("lastSuccessAt", ok.toString());
-        }
-        Instant fail = lastFailure.get();
-        if (fail != null) {
-            b.withDetail("lastFailureAt", fail.toString());
-        }
-        return b;
+        Instant now = telemetry.clock().instant();
+        Health.Builder b = new Health.Builder().down()
+                .withDetail("error", ex.getClass().getSimpleName() + ": " + ex.getMessage());
+        Health snapshot = b.build();
+        telemetry.recordOutcome(snapshot, now);
+        return telemetry.decorate(b, start, now).build();
     }
 }

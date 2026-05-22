@@ -4,6 +4,8 @@ import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import io.micrometer.observation.ObservationRegistry;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -32,7 +34,10 @@ public class PulseReactiveAutoConfiguration {
     @ConditionalOnEnabledHealthIndicator("pulseReactive")
     public CompositeReactiveHealthContributor pulseReactive(
             ObjectProvider<ReactivePulseCheck> checks, Clock pulseClock,
-            PulseProperties pulseProperties) {
+            PulseProperties pulseProperties,
+            ObjectProvider<ObservationRegistry> observationRegistryProvider) {
+        ObservationRegistry observationRegistry = observationRegistryProvider
+                .getIfAvailable(() -> ObservationRegistry.NOOP);
         Map<String, ReactiveHealthContributor> map = new LinkedHashMap<>();
         checks.orderedStream().forEach(check -> {
             String name = check.name();
@@ -44,7 +49,8 @@ public class PulseReactiveAutoConfiguration {
                         + check.getClass().getName() + ": " + ex.getMessage(), ex);
             }
             ReactiveHealthContributor existing = map.put(name,
-                    new ReactivePulseCheckAdapter(check, pulseClock, pulseProperties.getCheckTimeout()));
+                    new ReactivePulseCheckAdapter(check, pulseClock,
+                            pulseProperties.getCheckTimeout(), "reactive", observationRegistry));
             if (existing != null) {
                 throw new IllegalStateException("Duplicate ReactivePulseCheck name: " + name);
             }

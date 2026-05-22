@@ -12,6 +12,7 @@ import io.github.kcsurapaneni.pulse.core.PulseCheckAdapter;
 import io.github.kcsurapaneni.pulse.core.PulseNames;
 import io.github.kcsurapaneni.pulse.core.PulseProperties;
 import io.github.kcsurapaneni.pulse.oauth2.OAuth2Properties.Provider;
+import io.micrometer.observation.ObservationRegistry;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -58,8 +59,11 @@ public class OAuth2AutoConfiguration {
             PulseProperties pulseProperties,
             ClientRegistrationRepository clientRegistrationRepository,
             @Qualifier("oauth2HealthHttpClient") HttpClient oauth2HealthHttpClient,
-            ObjectProvider<ObjectMapper> objectMapperProvider) {
+            ObjectProvider<ObjectMapper> objectMapperProvider,
+            ObjectProvider<ObservationRegistry> observationRegistryProvider) {
         ObjectMapper objectMapper = objectMapperProvider.getIfAvailable(ObjectMapper::new);
+        ObservationRegistry observationRegistry = observationRegistryProvider
+                .getIfAvailable(() -> ObservationRegistry.NOOP);
         Map<String, HealthContributor> map = new LinkedHashMap<>();
         for (Provider provider : props.getProviders()) {
             validate(provider);
@@ -69,7 +73,8 @@ public class OAuth2AutoConfiguration {
             OAuth2Check check = new OAuth2Check(provider, clientRegistrationRepository,
                     oauth2HealthHttpClient, props.getTimeout(), pulseClock, objectMapper);
             map.put(provider.getName(),
-                    new PulseCheckAdapter(check, pulseClock, pulseProperties.getCheckTimeout()));
+                    new PulseCheckAdapter(check, pulseClock, pulseProperties.getCheckTimeout(),
+                            "oauth2", observationRegistry));
         }
         return CompositeHealthContributor.fromMap(map);
     }

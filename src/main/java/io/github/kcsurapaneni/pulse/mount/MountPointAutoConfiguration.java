@@ -9,7 +9,9 @@ import io.github.kcsurapaneni.pulse.core.PulseCheckAdapter;
 import io.github.kcsurapaneni.pulse.core.PulseNames;
 import io.github.kcsurapaneni.pulse.core.PulseProperties;
 import io.github.kcsurapaneni.pulse.mount.MountPointProperties.MountPoint;
+import io.micrometer.observation.ObservationRegistry;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -34,7 +36,10 @@ public class MountPointAutoConfiguration {
     @Bean(name = "mount")
     @ConditionalOnMissingBean(name = "mount")
     public CompositeHealthContributor mount(MountPointProperties props, Clock pulseClock,
-            PulseProperties pulseProperties) {
+            PulseProperties pulseProperties,
+            ObjectProvider<ObservationRegistry> observationRegistryProvider) {
+        ObservationRegistry observationRegistry = observationRegistryProvider
+                .getIfAvailable(() -> ObservationRegistry.NOOP);
         Map<String, HealthContributor> map = new LinkedHashMap<>();
         for (MountPoint point : props.getPoints()) {
             validate(point);
@@ -42,7 +47,7 @@ public class MountPointAutoConfiguration {
                 throw new IllegalStateException("Duplicate mount point name: " + point.getName());
             }
             map.put(point.getName(), new PulseCheckAdapter(new MountPointCheck(point), pulseClock,
-                    pulseProperties.getCheckTimeout()));
+                    pulseProperties.getCheckTimeout(), "mount", observationRegistry));
         }
         return CompositeHealthContributor.fromMap(map);
     }

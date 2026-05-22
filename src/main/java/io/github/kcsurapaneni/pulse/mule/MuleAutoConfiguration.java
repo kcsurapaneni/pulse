@@ -10,7 +10,9 @@ import io.github.kcsurapaneni.pulse.core.PulseCheckAdapter;
 import io.github.kcsurapaneni.pulse.core.PulseNames;
 import io.github.kcsurapaneni.pulse.core.PulseProperties;
 import io.github.kcsurapaneni.pulse.mule.MuleProperties.Service;
+import io.micrometer.observation.ObservationRegistry;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -48,7 +50,10 @@ public class MuleAutoConfiguration {
             MuleProperties props,
             Clock pulseClock,
             PulseProperties pulseProperties,
-            @Qualifier("muleHealthHttpClient") HttpClient muleHealthHttpClient) {
+            @Qualifier("muleHealthHttpClient") HttpClient muleHealthHttpClient,
+            ObjectProvider<ObservationRegistry> observationRegistryProvider) {
+        ObservationRegistry observationRegistry = observationRegistryProvider
+                .getIfAvailable(() -> ObservationRegistry.NOOP);
         Map<String, HealthContributor> map = new LinkedHashMap<>();
         for (Service svc : props.getServices()) {
             validate(svc);
@@ -57,7 +62,7 @@ public class MuleAutoConfiguration {
             }
             map.put(svc.getName(), new PulseCheckAdapter(
                     new MuleCheck(svc, muleHealthHttpClient, props.getTimeout()), pulseClock,
-                    pulseProperties.getCheckTimeout()));
+                    pulseProperties.getCheckTimeout(), "mule", observationRegistry));
         }
         return CompositeHealthContributor.fromMap(map);
     }

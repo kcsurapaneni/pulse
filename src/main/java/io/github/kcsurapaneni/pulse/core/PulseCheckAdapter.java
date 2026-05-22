@@ -8,60 +8,81 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
+
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 
 import org.springframework.boot.health.contributor.AbstractHealthIndicator;
 import org.springframework.boot.health.contributor.Health;
-import org.springframework.boot.health.contributor.Status;
 
 /**
  * Bridges {@link PulseCheck} SPI instances into Spring Boot's
  * {@link AbstractHealthIndicator}. Decorates every result with {@code latencyMs} /
  * {@code lastSuccessAt} / {@code lastFailureAt}, and enforces an outer deadline so a
- * hung {@code check()} cannot block the {@code /actuator/health} response.
+ * hung {@code check()} cannot block the {@code /actuator/health} response. Records a
+ * {@code pulse.check} Micrometer Observation around each invocation; see
+ * {@link PulseCheckTelemetry}.
  *
  * @author Krishna Chaitanya Surapaneni
  */
 public class PulseCheckAdapter extends AbstractHealthIndicator {
 
-    private final PulseCheck check;
-    private final Clock clock;
-    private final Duration timeout;
-    private final AtomicReference<Instant> lastSuccess = new AtomicReference<>();
-    private final AtomicReference<Instant> lastFailure = new AtomicReference<>();
+    private static final String DEFAULT_KIND = "custom";
 
+    private final PulseCheck check;
+    private final Duration timeout;
+    private final PulseCheckTelemetry telemetry;
+
+    /**
+     * Convenience constructor that tags the check's kind as {@code "custom"} and uses a NOOP
+     * {@link ObservationRegistry}. Intended for tests + backwards source compatibility; production
+     * call sites should use the full constructor.
+     */
     public PulseCheckAdapter(PulseCheck check, Clock clock, Duration timeout) {
+        this(check, clock, timeout, DEFAULT_KIND, ObservationRegistry.NOOP);
+    }
+
+    public PulseCheckAdapter(PulseCheck check, Clock clock, Duration timeout, String kind,
+            ObservationRegistry observationRegistry) {
         super("Health check '" + check.name() + "' failed");
         this.check = check;
-        this.clock = clock;
         this.timeout = timeout;
+        this.telemetry = new PulseCheckTelemetry(check.name(), kind, clock, observationRegistry);
     }
 
     @Override
     protected void doHealthCheck(Health.Builder builder) throws Exception {
-        Instant start = clock.instant();
+        Instant start = telemetry.clock().instant();
+        Observation observation = telemetry.startObservation();
         try {
-            Health result = runWithTimeout();
-            builder.status(result.getStatus()).withDetails(result.getDetails());
-            if (Status.UP.equals(result.getStatus())) {
-                lastSuccess.set(clock.instant());
+            try {
+                Health result = runWithTimeout();
+                Instant now = telemetry.clock().instant();
+                builder.status(result.getStatus()).withDetails(result.getDetails());
+                telemetry.recordOutcome(result, now);
+                telemetry.decorate(builder, start, now);
             }
-            else {
-                lastFailure.set(clock.instant());
+            catch (TimeoutException ex) {
+                Instant now = telemetry.clock().instant();
+                Health timeoutResult = new Health.Builder().down()
+                        .withDetail("error", "check timed out after " + timeout)
+                        .withDetail("timeout", timeout.toString())
+                        .build();
+                builder.status(timeoutResult.getStatus()).withDetails(timeoutResult.getDetails());
+                telemetry.recordOutcome(timeoutResult, now);
+                telemetry.decorate(builder, start, now);
+                observation.error(ex);
             }
-            decorate(builder, start);
+            catch (Exception ex) {
+                Instant now = telemetry.clock().instant();
+                telemetry.recordException(ex, now);
+                telemetry.decorate(builder, start, now);
+                observation.error(ex);
+                throw ex;
+            }
         }
-        catch (TimeoutException ex) {
-            lastFailure.set(clock.instant());
-            builder.down()
-                    .withDetail("error", "check timed out after " + timeout)
-                    .withDetail("timeout", timeout.toString());
-            decorate(builder, start);
-        }
-        catch (Exception ex) {
-            lastFailure.set(clock.instant());
-            decorate(builder, start);
-            throw ex;
+        finally {
+            observation.stop();
         }
     }
 
@@ -96,18 +117,6 @@ public class PulseCheckAdapter extends AbstractHealthIndicator {
             Thread.currentThread().interrupt();
             future.cancel(true);
             throw e;
-        }
-    }
-
-    private void decorate(Health.Builder builder, Instant start) {
-        builder.withDetail("latencyMs", Duration.between(start, clock.instant()).toMillis());
-        Instant ok = lastSuccess.get();
-        if (ok != null) {
-            builder.withDetail("lastSuccessAt", ok.toString());
-        }
-        Instant fail = lastFailure.get();
-        if (fail != null) {
-            builder.withDetail("lastFailureAt", fail.toString());
         }
     }
 }

@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Observability via Micrometer Observation API.** Every Pulse check now records a
+  `pulse.check` Observation tagged with `name` (the check's component key, e.g. `okta`)
+  and `kind` (`mount` / `mule` / `oauth2` / `custom` / `reactive`). Consumers wiring an
+  OTel / OTLP / Prometheus / Datadog exporter at the application level pick up Pulse's
+  signals automatically — metrics, traces, and bridged logs flow through whatever
+  registry Spring Boot's observability stack is configured with. When no registry is
+  configured the Observation is a no-op (zero cost). Implemented via the existing
+  `io.micrometer:micrometer-observation` dependency that Spring Boot Actuator already
+  brings transitively; no new optional dep.
+- **Transition logging.** A check flipping UP → DOWN now emits a `WARN`-level log line
+  with the check name, kind, status, and details; a DOWN → UP recovery emits at `INFO`.
+  The first probe after startup never logs (no prior state to compare). Pulse previously
+  had zero loggers in `src/main/java/`; this is the first.
+- **Shared `PulseCheckTelemetry`** in `core` carrying last-success / last-failure /
+  last-status tracking + decoration. Both `PulseCheckAdapter` and
+  `ReactivePulseCheckAdapter` now delegate to it, removing the duplication between the
+  blocking and reactive adapters. The class is `public` so future SPI work
+  (per-check timeout, per-check probes) has a single integration point.
+
+### Changed
+- `PulseCheckAdapter` and `ReactivePulseCheckAdapter` gain a `(kind, ObservationRegistry)`
+  constructor pair alongside the existing `(check, clock, timeout)` form. The old
+  constructors still compile and default to `kind="custom"` / `kind="reactive"` and a
+  NOOP registry, so consumers building adapters directly (rare — typically Pulse builds
+  them) are not broken.
+
+### Fixed
+- `PulseCheckAdapterTest.recoversFromPriorTimeoutOnNextProbe` previously slept for
+  60 seconds inside the hung-check fixture, leaking a ghost `ForkJoinPool` worker for
+  the full minute on every CI run. Reduced to 2 seconds — the test still asserts the
+  adapter terminates inside the configured 200 ms timeout.
+
 ## [0.7.0] — 2026-05-21
 
 Second non-breaking OAuth2 opt-in in two releases. Existing consumers see no behavioural

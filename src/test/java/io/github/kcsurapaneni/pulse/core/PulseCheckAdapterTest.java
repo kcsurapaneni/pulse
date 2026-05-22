@@ -4,6 +4,9 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import io.micrometer.observation.tck.TestObservationRegistry;
+import io.micrometer.observation.tck.TestObservationRegistryAssert;
+
 import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.health.contributor.Health;
@@ -100,7 +103,11 @@ class PulseCheckAdapterTest {
 
             @Override
             public Health check() throws Exception {
-                Thread.sleep(60_000);
+                // Was 60_000ms — that leaked a ghost ForkJoinPool worker for the full minute on
+                // every CI run since future.cancel(true) is best-effort and Thread.sleep doesn't
+                // honour interrupts immediately on all JVMs. 2 seconds is enough to cover any
+                // reasonable adapter overhead while keeping CI clean.
+                Thread.sleep(2_000);
                 return Health.up().build();
             }
         };
@@ -148,5 +155,59 @@ class PulseCheckAdapterTest {
 
         assertThat(first.getStatus()).isEqualTo(Status.DOWN);
         assertThat(second.getStatus()).isEqualTo(Status.UP);
+    }
+
+    @Test
+    void publishesObservationTaggedWithNameAndKind() {
+        TestObservationRegistry registry = TestObservationRegistry.create();
+        PulseCheck ok = new PulseCheck() {
+            @Override
+            public String name() {
+                return "okta";
+            }
+
+            @Override
+            public Health check() {
+                return Health.up().build();
+            }
+        };
+        PulseCheckAdapter adapter = new PulseCheckAdapter(ok, Clock.systemUTC(),
+                Duration.ofSeconds(5), "oauth2", registry);
+
+        adapter.health();
+
+        TestObservationRegistryAssert.assertThat(registry)
+                .hasObservationWithNameEqualTo(PulseCheckTelemetry.OBSERVATION_NAME)
+                .that()
+                .hasLowCardinalityKeyValue("name", "okta")
+                .hasLowCardinalityKeyValue("kind", "oauth2")
+                .hasBeenStopped();
+    }
+
+    @Test
+    void observationRecordsErrorOnException() {
+        TestObservationRegistry registry = TestObservationRegistry.create();
+        PulseCheck boom = new PulseCheck() {
+            @Override
+            public String name() {
+                return "boom";
+            }
+
+            @Override
+            public Health check() {
+                throw new RuntimeException("kaboom");
+            }
+        };
+        PulseCheckAdapter adapter = new PulseCheckAdapter(boom, Clock.systemUTC(),
+                Duration.ofSeconds(5), "custom", registry);
+
+        Health result = adapter.health();
+
+        assertThat(result.getStatus()).isEqualTo(Status.DOWN);
+        TestObservationRegistryAssert.assertThat(registry)
+                .hasObservationWithNameEqualTo(PulseCheckTelemetry.OBSERVATION_NAME)
+                .that()
+                .hasError()
+                .hasBeenStopped();
     }
 }
