@@ -53,3 +53,16 @@ pulse:
         #
         # The handshake/reachable trade-off table lives in the top-level README
         # under "OAuth2 check → Validation depth (mode)".
+
+        # --- Alternative: stale-but-valid on transient failures (opt-in, since Pulse 0.7.0) ---
+        # Default behaviour is to flip DOWN on any handshake failure. Add the line
+        # below to instead return UP with `stale: true` when the failure is transient
+        # (IOException, 5xx, 429) AND the cached token is still within its natural
+        # lifetime. The check flips DOWN once the token reaches natural expiry, or
+        # immediately on a 4xx other than 429 (those almost always mean credentials
+        # are wrong, so masking them with a stale UP would hide real breakage).
+        #
+        #   on-transient-failure: stale
+        #
+        # The full failure-class breakdown lives in the top-level README under
+        # "OAuth2 check → Cache resilience for transient failures".
