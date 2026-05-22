@@ -33,7 +33,7 @@ In your consumer app's `pom.xml`:
 <dependency>
   <groupId>io.github.kcsurapaneni</groupId>
   <artifactId>pulse-starter</artifactId>
-  <version>0.8.0</version>
+  <version>0.9.0</version>
 </dependency>
 ```
 

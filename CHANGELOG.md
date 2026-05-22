@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-05-21
+
+Internal refactor with better error messages and one small new transitive dep. No
+behavioural change for valid configs; misconfigured configs now fail with the full
+property path included automatically.
+
 ### Changed
 - **Property validation now uses Bean Validation** (`jakarta.validation`) instead of three
   hand-rolled `validate(...)` methods that lived in the module auto-configs. `pulse.mount`,
@@ -276,7 +282,8 @@ with uniform `latencyMs` / `lastSuccessAt` / `lastFailureAt` decoration.
 - 39 unit + auto-configuration slice tests
 - 8 integration tests (Keycloak Testcontainer for OAuth2, WireMock for Mule HTTP)
 
-[Unreleased]: https://github.com/kcsurapaneni/pulse/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/kcsurapaneni/pulse/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/kcsurapaneni/pulse/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/kcsurapaneni/pulse/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/kcsurapaneni/pulse/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/kcsurapaneni/pulse/compare/v0.5.0...v0.6.0
