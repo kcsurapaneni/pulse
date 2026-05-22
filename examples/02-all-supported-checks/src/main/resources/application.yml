@@ -40,3 +40,59 @@ pulse:
       - name: httpbin-flaky
         url: https://httpbin.org/status/503
         expected-status: 200         # mismatched: example shows how DOWN looks
+
+# --- Optional: wire Pulse's `pulse.check` Observation into your observability stack ---
+# Since Pulse 0.8.0 every check records a Micrometer Observation tagged with
+# `name` (check key) and `kind` (mount / mule / oauth2 / custom / reactive).
+# When no exporter is configured the Observation is a no-op (zero cost).
+# Pick whichever stack your platform uses — no Pulse-side change required.
+#
+# ===== Prometheus =====
+#
+# 1. Add the registry dep to pom.xml:
+#      <dependency>
+#        <groupId>io.micrometer</groupId>
+#        <artifactId>micrometer-registry-prometheus</artifactId>
+#      </dependency>
+#
+# 2. Expose the Prometheus actuator endpoint:
+#      management:
+#        endpoints:
+#          web:
+#            exposure:
+#              include: health, prometheus
+#
+# 3. Scrape /actuator/prometheus. Pulse's checks surface as:
+#      pulse_check_seconds_count{kind="mount", name="tmp",         status="UP"}   142
+#      pulse_check_seconds_sum  {kind="mount", name="tmp",         status="UP"}   0.118
+#      pulse_check_seconds_count{kind="mule",  name="httpbin-ok",  status="UP"}   142
+#      pulse_check_seconds_count{kind="mule",  name="httpbin-flaky",status="DOWN"} 142
+#
+# ===== OpenTelemetry / OTLP =====
+#
+# 1. Add the registries to pom.xml:
+#      <dependency>
+#        <groupId>io.micrometer</groupId>
+#        <artifactId>micrometer-registry-otlp</artifactId>
+#      </dependency>
+#      <dependency>
+#        <groupId>io.micrometer</groupId>
+#        <artifactId>micrometer-tracing-bridge-otel</artifactId>
+#      </dependency>
+#
+# 2. Point Spring Boot's OTLP exporter at your collector:
+#      management:
+#        otlp:
+#          metrics:
+#            export:
+#              url: http://otel-collector.local:4318/v1/metrics
+#          tracing:
+#            endpoint: http://otel-collector.local:4318/v1/traces
+#        tracing:
+#          sampling:
+#            probability: 1.0     # send every span; drop in real prod deployments
+#
+# Pulse's metrics + traces flow to the collector without any Pulse-side wiring.
+#
+# Trade-off table + transition-log format are in the top-level README under
+# "Observability".

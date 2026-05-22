@@ -42,7 +42,7 @@
         <dependency>
             <groupId>io.github.kcsurapaneni</groupId>
             <artifactId>pulse-starter</artifactId>
-            <version>0.7.0</version>
+            <version>0.8.0</version>
         </dependency>
 
         <!-- Testcontainers deps live in test scope so the production classpath of this
