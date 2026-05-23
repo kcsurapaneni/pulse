@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-05-23
+
+Mount-point check picks up three real failure modes that the existing existence +
+readable + space-threshold checks couldn't catch. Existing consumers see one new
+detail key (`fileStore`) on every probe and `freePercent` now emitted
+unconditionally; everything else stays opt-in.
+
 ### Added
 - **`pulse.mount.points[].require-writable`** opt-in probes the mount with a tiny
   write-then-delete on every probe. Catches the read-only-remount failure mode that
@@ -378,7 +385,8 @@ with uniform `latencyMs` / `lastSuccessAt` / `lastFailureAt` decoration.
 - 39 unit + auto-configuration slice tests
 - 8 integration tests (Keycloak Testcontainer for OAuth2, WireMock for Mule HTTP)
 
-[Unreleased]: https://github.com/kcsurapaneni/pulse/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/kcsurapaneni/pulse/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/kcsurapaneni/pulse/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/kcsurapaneni/pulse/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/kcsurapaneni/pulse/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/kcsurapaneni/pulse/compare/v0.8.0...v0.9.0
