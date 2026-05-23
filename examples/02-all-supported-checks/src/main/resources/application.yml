@@ -27,6 +27,18 @@ pulse:
       - name: home
         path: ${user.home}
         min-free-percent: 5
+        # --- Optional: probe-write a tiny file on every check (opt-in, since Pulse 0.12.0) ---
+        # Uncomment to catch read-only-remount failure modes that `Files.isReadable` misses —
+        # NFS / SMB / FUSE setups often silently downgrade a mount to read-only on
+        # connectivity loss. The probe creates `.pulse-probe-*` then deletes it in a finally
+        # block. Costs an fsync per probe, so opt in only on mounts the app actually writes to.
+        #
+        # require-writable: true
+
+    # On every probe the mount check also captures Files.getFileStore(path).name() and reports
+    # DOWN if the value changes on later probes — catches the "mount vanished and got re-bound
+    # to an empty local dir at the same path" failure mode. No config needed; it always runs.
+    # See the top-level README under "Mount-point check → What's always emitted".
 
   mule:
     enabled: true
