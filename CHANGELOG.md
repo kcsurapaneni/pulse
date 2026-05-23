@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Dedicated `pulseHealthExecutor` bean** for the outer-deadline timeout enforcement in
+  `PulseCheckAdapter`. Default is `Executors.newVirtualThreadPerTaskExecutor()` —
+  Java 21 makes per-check virtual threads effectively free, and isolating the work from
+  `ForkJoinPool.commonPool` means a hung check can't starve parallel streams,
+  application-side `CompletableFuture` calls, or Spring's own infrastructure (and vice
+  versa). Override by declaring your own bean named `pulseHealthExecutor` (e.g. a bounded
+  platform-thread pool with Micrometer instrumentation) — Spring picks up the override via
+  `@ConditionalOnMissingBean`. Cleanly shut down on context close via Spring's
+  auto-detection of `ExecutorService#close()`.
+- Public constant `PulseAutoConfiguration.HEALTH_EXECUTOR_BEAN_NAME` so consumers can
+  reference the bean name from a fixed source instead of a literal string.
+
+### Changed
+- `PulseCheckAdapter` gains a 6-arg constructor that accepts a `java.util.concurrent.Executor`.
+  The existing 3-arg and 5-arg constructors still compile — they delegate to the 6-arg form
+  with `ForkJoinPool.commonPool()` as the fallback. All four internal call sites
+  (`PulseAutoConfiguration`, `MountPointAutoConfiguration`, `MuleAutoConfiguration`,
+  `OAuth2AutoConfiguration`) now inject the `pulseHealthExecutor` bean. The reactive adapter
+  is unaffected — it uses `Mono.timeout` rather than `CompletableFuture`.
+
 ## [0.10.0] — 2026-05-21
 
 Two non-breaking opt-ins land on the SPI plus a cleanup pass on the examples. Existing

@@ -82,6 +82,12 @@ pulse:
 
 This is an **outer** deadline applied uniformly to every check. Module-specific request timeouts (`pulse.mule.timeout`, `pulse.oauth2.timeout`) still apply at the inner request level — `check-timeout` just caps the total so a missed inner timeout can't escalate into a blocked actuator response.
 
+### Executor
+
+The timeout enforcement off-threads `check()` onto a dedicated `pulseHealthExecutor` bean — defaulting to `Executors.newVirtualThreadPerTaskExecutor()` on Java 21 — so a hung check can never tie up `ForkJoinPool.commonPool` and conflict with parallel streams, application-side `CompletableFuture` calls, or Spring's own infrastructure. Per-check `checkTimeout()` (above) still applies on top of this.
+
+If you'd rather a bounded platform-thread pool (with Micrometer instrumentation, for example), declare your own bean named `pulseHealthExecutor` — Spring's `@ConditionalOnMissingBean` backs off the default. Pulse calls `close()` on it during context shutdown if it implements `AutoCloseable`.
+
 ## Kubernetes probes (liveness vs readiness)
 
 Spring Boot exposes two extra availability-aware endpoints in addition to `/actuator/health`:

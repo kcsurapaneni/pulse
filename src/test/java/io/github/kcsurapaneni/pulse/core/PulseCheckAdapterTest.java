@@ -185,6 +185,48 @@ class PulseCheckAdapterTest {
     }
 
     @Test
+    void supplyAsyncUsesInjectedExecutor() throws Exception {
+        // The custom executor records every Runnable it executes; the adapter must route the
+        // check's CompletableFuture through it, not the implicit ForkJoinPool.commonPool().
+        java.util.concurrent.atomic.AtomicInteger submissions = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.ExecutorService inner =
+                java.util.concurrent.Executors.newSingleThreadExecutor(r -> new Thread(r, "pulse-test"));
+        java.util.concurrent.Executor counting = task -> {
+            submissions.incrementAndGet();
+            inner.execute(task);
+        };
+        try {
+            PulseCheck ok = new PulseCheck() {
+                @Override
+                public String name() {
+                    return "executor-routed";
+                }
+
+                @Override
+                public Health check() {
+                    return Health.up().withDetail("threadName", Thread.currentThread().getName()).build();
+                }
+            };
+            PulseCheckAdapter adapter = new PulseCheckAdapter(ok, Clock.systemUTC(),
+                    Duration.ofSeconds(5), "custom", io.micrometer.observation.ObservationRegistry.NOOP,
+                    counting);
+
+            Health result = adapter.health();
+
+            assertThat(result.getStatus()).isEqualTo(Status.UP);
+            assertThat(submissions.get())
+                    .as("custom executor must receive exactly one submission per probe")
+                    .isEqualTo(1);
+            assertThat(result.getDetails().get("threadName"))
+                    .as("check must run on the injected executor's thread, not the common pool")
+                    .isEqualTo("pulse-test");
+        }
+        finally {
+            inner.shutdownNow();
+        }
+    }
+
+    @Test
     void perCheckCheckTimeoutOverridesGlobal() {
         // SPI bean asks for a 50ms timeout; the global ceiling we pass in is 5s. The check
         // sleeps long enough to exceed the per-check cap but well inside the global one — if the

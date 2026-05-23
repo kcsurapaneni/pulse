@@ -81,6 +81,43 @@ class PulseAutoConfigurationTest {
                 });
     }
 
+    @Test
+    void registersDefaultHealthExecutor() {
+        runner.run(ctx -> {
+            assertThat(ctx).hasBean(PulseAutoConfiguration.HEALTH_EXECUTOR_BEAN_NAME);
+            // The default is a virtual-thread-per-task executor — Java 21's implementation is
+            // the one created by Executors.newVirtualThreadPerTaskExecutor(). Its concrete class
+            // is package-private (ThreadPerTaskExecutor); assert via getClass().getName() to
+            // avoid coupling to a public-API change between Java versions.
+            java.util.concurrent.Executor exec = ctx.getBean(
+                    PulseAutoConfiguration.HEALTH_EXECUTOR_BEAN_NAME, java.util.concurrent.Executor.class);
+            assertThat(exec.getClass().getName())
+                    .as("default must be a virtual-thread-per-task executor")
+                    .contains("ThreadPerTaskExecutor");
+        });
+    }
+
+    @Test
+    void allowsConsumerToOverrideHealthExecutor() {
+        java.util.concurrent.ExecutorService myExecutor =
+                java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            runner.withBean(PulseAutoConfiguration.HEALTH_EXECUTOR_BEAN_NAME,
+                    java.util.concurrent.ExecutorService.class, () -> myExecutor)
+                    .run(ctx -> {
+                        java.util.concurrent.Executor exec = ctx.getBean(
+                                PulseAutoConfiguration.HEALTH_EXECUTOR_BEAN_NAME,
+                                java.util.concurrent.Executor.class);
+                        assertThat(exec)
+                                .as("consumer-supplied bean must win via @ConditionalOnMissingBean")
+                                .isSameAs(myExecutor);
+                    });
+        }
+        finally {
+            myExecutor.shutdownNow();
+        }
+    }
+
     @Configuration
     static class WithCheckBean {
 

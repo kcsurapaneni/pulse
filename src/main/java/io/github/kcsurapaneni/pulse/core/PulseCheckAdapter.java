@@ -6,6 +6,8 @@ import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -32,18 +34,30 @@ public class PulseCheckAdapter extends AbstractHealthIndicator {
     private final PulseCheck check;
     private final Duration timeout;
     private final PulseCheckTelemetry telemetry;
+    private final Executor executor;
 
     /**
-     * Convenience constructor that tags the check's kind as {@code "custom"} and uses a NOOP
-     * {@link ObservationRegistry}. Intended for tests + backwards source compatibility; production
-     * call sites should use the full constructor.
+     * Convenience constructor that tags the check's kind as {@code "custom"}, uses a NOOP
+     * {@link ObservationRegistry}, and falls back to {@link ForkJoinPool#commonPool()} for
+     * timeout off-threading. Intended for tests + backwards source compatibility; production
+     * call sites should use the full 6-arg constructor with the dedicated
+     * {@code pulseHealthExecutor} bean.
      */
     public PulseCheckAdapter(PulseCheck check, Clock clock, Duration timeout) {
-        this(check, clock, timeout, DEFAULT_KIND, ObservationRegistry.NOOP);
+        this(check, clock, timeout, DEFAULT_KIND, ObservationRegistry.NOOP, ForkJoinPool.commonPool());
+    }
+
+    /**
+     * Source-compat overload that pre-dates the dedicated executor. Falls back to
+     * {@link ForkJoinPool#commonPool()}.
+     */
+    public PulseCheckAdapter(PulseCheck check, Clock clock, Duration timeout, String kind,
+            ObservationRegistry observationRegistry) {
+        this(check, clock, timeout, kind, observationRegistry, ForkJoinPool.commonPool());
     }
 
     public PulseCheckAdapter(PulseCheck check, Clock clock, Duration timeout, String kind,
-            ObservationRegistry observationRegistry) {
+            ObservationRegistry observationRegistry, Executor executor) {
         super("Health check '" + check.name() + "' failed");
         this.check = check;
         // Per-check override (PulseCheck#checkTimeout) wins over the passed-in global timeout
@@ -51,6 +65,7 @@ public class PulseCheckAdapter extends AbstractHealthIndicator {
         Duration override = check.checkTimeout();
         this.timeout = override != null ? override : timeout;
         this.telemetry = new PulseCheckTelemetry(check.name(), kind, clock, observationRegistry);
+        this.executor = executor;
     }
 
     @Override
@@ -97,7 +112,7 @@ public class PulseCheckAdapter extends AbstractHealthIndicator {
             catch (Exception e) {
                 throw new CompletionException(e);
             }
-        });
+        }, executor);
         try {
             return future.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
         }

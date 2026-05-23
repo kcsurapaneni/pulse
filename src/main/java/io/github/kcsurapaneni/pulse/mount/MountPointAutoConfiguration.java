@@ -3,6 +3,7 @@ package io.github.kcsurapaneni.pulse.mount;
 import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
 import io.github.kcsurapaneni.pulse.core.PulseAutoConfiguration;
 import io.github.kcsurapaneni.pulse.core.PulseCheckAdapter;
@@ -11,6 +12,7 @@ import io.github.kcsurapaneni.pulse.mount.MountPointProperties.MountPoint;
 import io.micrometer.observation.ObservationRegistry;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -36,7 +38,8 @@ public class MountPointAutoConfiguration {
     @ConditionalOnMissingBean(name = "mount")
     public CompositeHealthContributor mount(MountPointProperties props, Clock pulseClock,
             PulseProperties pulseProperties,
-            ObjectProvider<ObservationRegistry> observationRegistryProvider) {
+            ObjectProvider<ObservationRegistry> observationRegistryProvider,
+            @Qualifier(PulseAutoConfiguration.HEALTH_EXECUTOR_BEAN_NAME) Executor pulseHealthExecutor) {
         ObservationRegistry observationRegistry = observationRegistryProvider
                 .getIfAvailable(() -> ObservationRegistry.NOOP);
         Map<String, HealthContributor> map = new LinkedHashMap<>();
@@ -45,7 +48,7 @@ public class MountPointAutoConfiguration {
                 throw new IllegalStateException("Duplicate mount point name: " + point.getName());
             }
             map.put(point.getName(), new PulseCheckAdapter(new MountPointCheck(point), pulseClock,
-                    pulseProperties.getCheckTimeout(), "mount", observationRegistry));
+                    pulseProperties.getCheckTimeout(), "mount", observationRegistry, pulseHealthExecutor));
         }
         return CompositeHealthContributor.fromMap(map);
     }

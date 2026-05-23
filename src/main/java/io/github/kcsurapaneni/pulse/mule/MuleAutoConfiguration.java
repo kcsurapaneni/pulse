@@ -4,6 +4,7 @@ import java.net.http.HttpClient;
 import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
 import io.github.kcsurapaneni.pulse.core.PulseAutoConfiguration;
 import io.github.kcsurapaneni.pulse.core.PulseCheckAdapter;
@@ -50,7 +51,8 @@ public class MuleAutoConfiguration {
             Clock pulseClock,
             PulseProperties pulseProperties,
             @Qualifier("muleHealthHttpClient") HttpClient muleHealthHttpClient,
-            ObjectProvider<ObservationRegistry> observationRegistryProvider) {
+            ObjectProvider<ObservationRegistry> observationRegistryProvider,
+            @Qualifier(PulseAutoConfiguration.HEALTH_EXECUTOR_BEAN_NAME) Executor pulseHealthExecutor) {
         ObservationRegistry observationRegistry = observationRegistryProvider
                 .getIfAvailable(() -> ObservationRegistry.NOOP);
         Map<String, HealthContributor> map = new LinkedHashMap<>();
@@ -60,7 +62,7 @@ public class MuleAutoConfiguration {
             }
             map.put(svc.getName(), new PulseCheckAdapter(
                     new MuleCheck(svc, muleHealthHttpClient, props.getTimeout()), pulseClock,
-                    pulseProperties.getCheckTimeout(), "mule", observationRegistry));
+                    pulseProperties.getCheckTimeout(), "mule", observationRegistry, pulseHealthExecutor));
         }
         return CompositeHealthContributor.fromMap(map);
     }

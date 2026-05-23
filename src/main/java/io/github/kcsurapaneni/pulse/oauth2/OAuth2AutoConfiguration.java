@@ -4,6 +4,7 @@ import java.net.http.HttpClient;
 import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -59,7 +60,8 @@ public class OAuth2AutoConfiguration {
             ClientRegistrationRepository clientRegistrationRepository,
             @Qualifier("oauth2HealthHttpClient") HttpClient oauth2HealthHttpClient,
             ObjectProvider<ObjectMapper> objectMapperProvider,
-            ObjectProvider<ObservationRegistry> observationRegistryProvider) {
+            ObjectProvider<ObservationRegistry> observationRegistryProvider,
+            @Qualifier(PulseAutoConfiguration.HEALTH_EXECUTOR_BEAN_NAME) Executor pulseHealthExecutor) {
         ObjectMapper objectMapper = objectMapperProvider.getIfAvailable(ObjectMapper::new);
         ObservationRegistry observationRegistry = observationRegistryProvider
                 .getIfAvailable(() -> ObservationRegistry.NOOP);
@@ -72,7 +74,7 @@ public class OAuth2AutoConfiguration {
                     oauth2HealthHttpClient, props.getTimeout(), pulseClock, objectMapper);
             map.put(provider.getName(),
                     new PulseCheckAdapter(check, pulseClock, pulseProperties.getCheckTimeout(),
-                            "oauth2", observationRegistry));
+                            "oauth2", observationRegistry, pulseHealthExecutor));
         }
         return CompositeHealthContributor.fromMap(map);
     }
