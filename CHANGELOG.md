@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-05-23
+
+Internal isolation upgrade. Existing consumers see no behavioural change — Pulse just
+runs its hung-check protection on a dedicated executor instead of sharing
+`ForkJoinPool.commonPool` with the rest of the JVM.
+
 ### Added
 - **Dedicated `pulseHealthExecutor` bean** for the outer-deadline timeout enforcement in
   `PulseCheckAdapter`. Default is `Executors.newVirtualThreadPerTaskExecutor()` —
@@ -348,7 +354,8 @@ with uniform `latencyMs` / `lastSuccessAt` / `lastFailureAt` decoration.
 - 39 unit + auto-configuration slice tests
 - 8 integration tests (Keycloak Testcontainer for OAuth2, WireMock for Mule HTTP)
 
-[Unreleased]: https://github.com/kcsurapaneni/pulse/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/kcsurapaneni/pulse/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/kcsurapaneni/pulse/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/kcsurapaneni/pulse/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/kcsurapaneni/pulse/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/kcsurapaneni/pulse/compare/v0.7.0...v0.8.0
