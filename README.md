@@ -188,7 +188,7 @@ The first probe after startup never logs (no prior state to compare against). Re
 
 ## Mount-point check
 
-Configure one or more mount points. The check is `DOWN` when any of: path is missing, isn't a directory, isn't readable, or free space falls below a configured threshold.
+Configure one or more mount points. The check is `DOWN` when any of: path is missing, isn't a directory, isn't readable, free space falls below a configured threshold, the **mount identity has changed since the first probe**, or (opt-in) the path isn't actually **writable**.
 
 ```yaml
 pulse:
@@ -201,6 +201,7 @@ pulse:
       - name: shared
         path: "//fileserver/data"
         min-free-percent: 10
+        require-writable: true            # opt-in: probe-write a temp file on each check
 ```
 
 Configuration:
@@ -212,8 +213,34 @@ Configuration:
 | `pulse.mount.points[].path`         | —       | Filesystem path to check. UNC paths supported on Windows. |
 | `pulse.mount.points[].min-free-bytes`   | —   | Minimum free bytes. Omit to skip the byte threshold.   |
 | `pulse.mount.points[].min-free-percent` | —   | Minimum free percent (0–100). Omit to skip.            |
+| `pulse.mount.points[].require-writable` | `false` | When `true`, probe-write a `.pulse-probe-*` temp file on each check and delete it. Catches read-only remounts that `Files.isReadable` alone misses. |
 
 Both thresholds are optional; setting neither means existence + readability only.
+
+### What's always emitted
+
+Every probe attaches these details regardless of which thresholds you set:
+
+- **`totalBytes`** / **`freeBytes`** — current capacity
+- **`freePercent`** — usable / total × 100, rounded to two decimal places. Emitted unconditionally so dashboards can graph it without configuring a no-op threshold
+- **`fileStore`** — the underlying `FileStore.name()` (e.g. `/dev/disk1s5` on macOS, `/dev/sda1` on Linux). Captured on the first probe as a baseline; **subsequent probes that observe a different `fileStore` value report `DOWN`** with `expectedFileStore` + `actualFileStore` in details. Catches the failure mode where an SMB / NFS mount vanishes and gets re-bound to a different filesystem (or an empty local directory) at the same path — the existence + readable checks keep passing in that scenario while writes go to the wrong place.
+
+When `FileStore` lookup itself throws (rare, e.g. some FUSE drivers), the check surfaces a `fileStoreWarn` detail and continues — other checks already detect the underlying failure.
+
+### `require-writable` (opt-in)
+
+```yaml
+pulse:
+  mount:
+    points:
+      - name: shared
+        path: "//fileserver/data"
+        require-writable: true
+```
+
+Probes the mount with `Files.createTempFile(path, ".pulse-probe-", "")` then `Files.deleteIfExists` in a `finally`. The probe-file prefix is recognisable so cleanup scripts can find leftovers if a process crashes between create + delete.
+
+Opt in when the application actually writes to this mount in normal operation. Skip it for read-only or write-rarely workloads (the probe write costs an `fsync` per probe).
 
 ## Mule check
 

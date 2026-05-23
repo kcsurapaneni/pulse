@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`pulse.mount.points[].require-writable`** opt-in probes the mount with a tiny
+  write-then-delete on every probe. Catches the read-only-remount failure mode that
+  `Files.isReadable` alone misses — NFS / SMB / FUSE setups often silently downgrade a
+  mount to read-only on connectivity loss, so reads keep succeeding but writes fail.
+  Default `false`; opt in only for mounts the application actually writes to. Probe
+  files use the prefix `.pulse-probe-` and are deleted in a finally block so a crash
+  between create + delete still leaves cleanable artefacts.
+- **Mount-identity change detection.** The check now captures
+  `Files.getFileStore(path).name()` on the first probe and compares against the
+  captured baseline on every subsequent probe. A mismatch surfaces as `DOWN` with
+  `error: "mount identity changed …"`, `expectedFileStore`, and `actualFileStore`.
+  Catches the failure mode where an SMB / NFS mount vanishes and gets re-bound to a
+  different filesystem (or an empty local directory) at the same path —
+  `Files.isReadable` keeps returning `true` and the totalBytes / freeBytes change
+  silently. The file-store name is also emitted on every probe under the
+  `fileStore` detail key for visibility.
+
+### Changed
+- **`pulse.mount` `freePercent` is now emitted unconditionally** when `totalBytes`
+  is positive. Previously the detail was only present when `min-free-percent` was
+  configured, forcing operators to set a no-op `min-free-percent: 0` just to see
+  the value on dashboards. Threshold behaviour itself is unchanged.
+
 ## [0.11.0] — 2026-05-23
 
 Internal isolation upgrade. Existing consumers see no behavioural change — Pulse just

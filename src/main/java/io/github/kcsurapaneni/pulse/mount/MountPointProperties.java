@@ -93,6 +93,20 @@ public class MountPointProperties {
          */
         private Integer minFreePercent;
 
+        /**
+         * When {@code true}, the check writes a tiny probe file under this mount point on every
+         * probe (via {@link java.nio.file.Files#createTempFile(java.nio.file.Path, String, String,
+         * java.nio.file.attribute.FileAttribute[])} with prefix {@code .pulse-probe-} ) and
+         * deletes it immediately. An {@code IOException} during write or delete reports the mount
+         * as {@code DOWN}.
+         *
+         * <p>Catches the read-only-remount failure mode that {@link java.nio.file.Files#isReadable
+         * isReadable} alone misses: many NFS / SMB / FUSE setups silently downgrade a mount to
+         * read-only on connectivity loss, so reads keep succeeding but writes fail. Default
+         * {@code false} — opt in for mounts where the application actually needs to write.
+         */
+        private boolean requireWritable;
+
         public String getName() {
             return name;
         }
@@ -123,6 +137,14 @@ public class MountPointProperties {
 
         public void setMinFreePercent(Integer minFreePercent) {
             this.minFreePercent = minFreePercent;
+        }
+
+        public boolean isRequireWritable() {
+            return requireWritable;
+        }
+
+        public void setRequireWritable(boolean requireWritable) {
+            this.requireWritable = requireWritable;
         }
     }
 }
